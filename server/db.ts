@@ -1,13 +1,14 @@
-// @ts-nocheck
 import mongoose from 'mongoose';
 
 const MONGODB_URI = process.env.MONGODB_URI;
-let isConnected = false;
 
 if (!MONGODB_URI) {
-  console.error("❌ MONGODB_URI is missing — please set it in .env or Vercel env vars");
-  throw new Error("Missing MONGODB_URI environment variable");
+  console.warn('⚠️ MONGODB_URI not found in environment variables. Falling back to default connection string for development.');
 }
+
+const connectionString = MONGODB_URI || 'mongodb+srv://navdeep:brarbrar@electrolight.ikzyr.mongodb.net/electrolight';
+
+let isConnected = false;
 
 export async function connectToDatabase() {
   if (isConnected) {
@@ -15,7 +16,12 @@ export async function connectToDatabase() {
   }
 
   try {
-    const connection = await mongoose.connect(MONGODB_URI);
+    const connection = await mongoose.connect(connectionString, {
+      // Serverless optimizations
+      maxPoolSize: 1,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+    });
     isConnected = true;
     console.log('✅ Connected to MongoDB:', connection.connection.host);
   } catch (error) {
