@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://navdeep:brarbrar@electrolight.ikzyr.mongodb.net/electrolight';
-
+const MONGODB_URI = process.env.MONGODB_URI;
 let isConnected = false;
 
 export async function connectToDatabase() {
