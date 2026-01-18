@@ -1,3 +1,2 @@
-import app from '../server/index';
-
-export default app;
+import handler from "../server/index";
+export default handler;
