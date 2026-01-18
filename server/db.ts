@@ -1,21 +1,19 @@
-import mongoose from 'mongoose'; //check
+import mongoose from 'mongoose';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 let isConnected = false;
 
 export async function connectToDatabase() {
-  // 1. Check if the variable exists
-  if (!process.env.MONGODB_URI) {
-    throw new Error("MONGODB_URI environment variable is missing");
+  if (isConnected) {
+    return;
   }
 
   try {
-    // 2. Now TypeScript knows it's a string, so it won't complain
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log("✅ Connected to MongoDB");
+    const connection = await mongoose.connect(MONGODB_URI);
+    isConnected = true;
+    console.log('✅ Connected to MongoDB:', connection.connection.host);
   } catch (error) {
-    console.error("❌ MongoDB connection error:", error);
-    // Don't exit the process here so Vercel doesn't crash immediately on cold start
+    console.error('❌ MongoDB connection error:', error);
     throw error;
   }
 }
