@@ -4,16 +4,18 @@ const MONGODB_URI = process.env.MONGODB_URI;
 let isConnected = false;
 
 export async function connectToDatabase() {
-  if (isConnected) {
-    return;
+  // 1. Safety Check: If the variable is missing, stop everything.
+  if (!process.env.MONGODB_URI) {
+    throw new Error("MONGODB_URI must be defined in the environment");
   }
 
   try {
-    const connection = await mongoose.connect(MONGODB_URI);
-    isConnected = true;
-    console.log('✅ Connected to MongoDB:', connection.connection.host);
+    // 2. Now TypeScript knows it is definitely a string
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log("✅ Connected to MongoDB");
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
+    console.error("❌ MongoDB connection error:", error);
+    // Don't kill the process on Vercel; just log the error so the lambda can retry or fail gracefully
     throw error;
   }
 }
