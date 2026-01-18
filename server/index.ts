@@ -58,9 +58,12 @@ async function bootstrap() {
     throw err;
   });
 
+  const isVercel = !!process.env.VERCEL;
+
   if (app.get("env") === "development") {
     await setupVite(app, server);
-  } else {
+  } else if (!isVercel) {
+    // Only serve static files when running as a normal Node server (not Vercel serverless)
     serveStatic(app);
   }
   
