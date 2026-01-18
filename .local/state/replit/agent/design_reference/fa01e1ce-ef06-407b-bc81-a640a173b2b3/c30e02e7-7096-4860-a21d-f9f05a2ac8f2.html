@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ElectroLight - Professional Electrical Products</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#F97316',
+                        'primary-dark': '#EA580C',
+                        'primary-light': '#FB923C'
+                    },
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="font-inter bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <button id="mobile-menu-btn" class="lg:hidden mr-3 text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                            <i class="fas fa-bolt text-white text-lg"></i>
+                        </div>
+                        <h1 class="text-2xl font-bold text-gray-900">ElectroLight</h1>
+                    </div>
+                </div>
+                
+                <div class="hidden md:flex items-center space-x-8">
+                    <nav class="flex space-x-8">
+                        <a href="#home" class="text-gray-700 hover:text-primary transition-colors">Home</a>
+                        <a href="#products" class="text-gray-700 hover:text-primary transition-colors">Products</a>
+                        <a href="#about" class="text-gray-700 hover:text-primary transition-colors">About</a>
+                        <a href="#contact" class="text-gray-700 hover:text-primary transition-colors">Contact</a>
+                    </nav>
+                    <div class="flex items-center space-x-4">
+                        <div class="relative">
+                            <input type="text" placeholder="Search products..." class="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                        </div>
+                        <button class="text-gray-700 hover:text-primary">
+                            <i class="fas fa-shopping-cart text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex">
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar" class="fixed lg:static inset-y-0 left-0 z-40 w-80 bg-white shadow-lg transform -translate-x-full lg:translate-x-0 transition-transform duration-300">
+            <div class="h-full overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-lg font-semibold text-gray-900">Categories</h2>
+                        <button id="close-sidebar" class="lg:hidden text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Categories List -->
+                    <div class="space-y-2">
+                        <div class="bg-primary text-white rounded-lg">
+                            <button class="w-full px-4 py-3 text-left font-medium flex items-center justify-between">
+                                <span><i class="fas fa-th-large mr-2"></i>All Categories</span>
+                                <i class="fas fa-chevron-up"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-1">
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="accessories">
+                                <i class="fas fa-plug mr-2"></i>Accessories
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="bamboo">
+                                <i class="fas fa-seedling mr-2"></i>Bamboo
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="baseboard">
+                                <i class="fas fa-thermometer-half mr-2"></i>Baseboard Heater & Accessories
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="construction">
+                                <i class="fas fa-hard-hat mr-2"></i>Construction
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="driver">
+                                <i class="fas fa-microchip mr-2"></i>Driver
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="extension-rings">
+                                <i class="fas fa-circle-notch mr-2"></i>Extension Rings
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="gangable-boxes">
+                                <i class="fas fa-cube mr-2"></i>Gangable Boxes
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="gi-wire">
+                                <i class="fas fa-project-diagram mr-2"></i>GI Wire
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="ground-plate">
+                                <i class="fas fa-square mr-2"></i>Ground Plate
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="light">
+                                <i class="fas fa-lightbulb mr-2"></i>Light
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="metal-box">
+                                <i class="fas fa-box mr-2"></i>Metal Box
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="metal-plates">
+                                <i class="fas fa-square-full mr-2"></i>Metal Plates
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="milk-carton">
+                                <i class="fas fa-archive mr-2"></i>Milk Carton
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="octagonal-box">
+                                <i class="fas fa-stop mr-2"></i>Octagonal Box
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="plastic-box">
+                                <i class="fas fa-cube mr-2"></i>Plastic Box
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="pot-light">
+                                <i class="fas fa-circle mr-2"></i>Pot Light
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="puck-light">
+                                <i class="fas fa-dot-circle mr-2"></i>Puck Light
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="pvc-pipe">
+                                <i class="fas fa-grip-lines mr-2"></i>PVC Pipe
+                            </button>
+                            <button class="category-btn w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors" data-category="smoke-alarm">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>Smoke Alarm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 lg:ml-0">
+            <!-- Hero Section -->
+            <section id="home" class="relative bg-gradient-to-r from-gray-900 to-gray-700 text-white">
+                <div class="absolute inset-0 bg-black opacity-50"></div>
+                <!-- Rotating electrical products images -->
+                <div id="hero-carousel" class="relative h-96 md:h-[500px] overflow-hidden">
+                    <!-- Professional electrical equipment display -->
+                    <div class="carousel-slide absolute inset-0 transition-opacity duration-1000" style="background-image: url('https://images.unsplash.com/photo-1621905251189-08b45d6a269e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&h=800'); background-size: cover; background-position: center;">
+                        <div class="absolute inset-0 bg-black bg-opacity-50"></div>
+                    </div>
+                    <!-- Modern electronics and components -->
+                    <div class="carousel-slide absolute inset-0 transition-opacity duration-1000 opacity-0" style="background-image: url('https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&h=800'); background-size: cover; background-position: center;">
+                        <div class="absolute inset-0 bg-black bg-opacity-50"></div>
+                    </div>
+                    <!-- Electrical components and wiring -->
+                    <div class="carousel-slide absolute inset-0 transition-opacity duration-1000 opacity-0" style="background-image: url('https://images.unsplash.com/photo-1581092160562-40aa08e78837?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&h=800'); background-size: cover; background-position: center;">
+                        <div class="absolute inset-0 bg-black bg-opacity-50"></div>
+                    </div>
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="text-center px-4">
+                        <h2 class="text-4xl md:text-6xl font-bold mb-4">Professional Electrical Solutions</h2>
+                        <p class="text-xl md:text-2xl mb-8 max-w-3xl">Quality electrical products and components for every project. From residential to commercial applications.</p>
+                        <button class="bg-primary hover:bg-primary-dark text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors">
+                            Browse Products
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Products Section -->
+            <section id="products" class="py-12">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="mb-8">
+                        <h2 class="text-3xl font-bold text-gray-900 mb-4">Our Products</h2>
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+                            <p class="text-gray-600">Discover our comprehensive range of electrical products</p>
+                            <div class="flex items-center space-x-4">
+                                <select class="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    <option>Sort by: Featured</option>
+                                    <option>Price: Low to High</option>
+                                    <option>Price: High to Low</option>
+                                    <option>Newest First</option>
+                                </select>
+                                <div class="flex rounded-lg border border-gray-300">
+                                    <button class="px-3 py-2 bg-primary text-white rounded-l-lg">
+                                        <i class="fas fa-th"></i>
+                                    </button>
+                                    <button class="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-r-lg">
+                                        <i class="fas fa-list"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Grid -->
+                    <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <!-- Product Cards -->
+                        <!-- LED Light Fixture -->
+                        <div class="product-card bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer" data-category="light">
+                            <!-- Professional LED lighting fixture -->
+                            <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300" alt="LED Light Fixture" class="w-full h-48 object-cover rounded-t-lg">
+                            <div class="p-4">
+                                <h3 class="font-semibold text-gray-900 mb-2">Professional LED Light Fixture</h3>
+                                <p class="text-gray-600 text-sm mb-3">High-efficiency LED lighting for commercial applications</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-primary">$149.99</span>
+                                    <button class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors">
+                                        View Details
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Electrical Panel -->
+                        <div class="product-card bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer" data-category="construction">
+                            <!-- Professional electrical panel/distribution board -->
+                            <img src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300" alt="Electrical Panel" class="w-full h-48 object-cover rounded-t-lg">
+                            <div class="p-4">
+                                <h3 class="font-semibold text-gray-900 mb-2">200A Electrical Panel</h3>
+                                <p class="text-gray-600 text-sm mb-3">Main electrical distribution panel for residential use</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-primary">$299.99</span>
+                                    <button class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors">
+                                        View Details
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Wire Connectors -->
+                        <div class="product-card bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer" data-category="accessories">
+                            <!-- Electrical wire connectors and terminals -->
+                            <img src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300" alt="Wire Connectors" class="w-full h-48 object-cover rounded-t-lg">
+                            <div class="p-4">
+                                <h3 class="font-semibold text-gray-900 mb-2">Wire Connector Set</h3>
+                                <p class="text-gray-600 text-sm mb-3">Professional grade wire nuts and connectors</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-primary">$24.99</span>
+                                    <button class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors">
+                                        View Details
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Metal Junction Box -->
+                        <div class="product-card bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer" data-category="metal-box">
+                            <!-- Metal electrical junction box -->
+                            <img src="https://pixabay.com/get/g20f082489f546e261638a1ded78f52bd73e20f0a5a5d6191d879d446ed102c17441b32220d9260c228f162d2f5b129e8abf431d2aa83b749159b9f6b12e6e5cf_1280.jpg" alt="Metal Junction Box" class="w-full h-48 object-cover rounded-t-lg">
+                            <div class="p-4">
+                                <h3 class="font-semibold text-gray-900 mb-2">4" Metal Junction Box</h3>
+                                <p class="text-gray-600 text-sm mb-3">Heavy-duty steel junction box for commercial use</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-primary">$18.99</span>
+                                    <button class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors">
+                                        View Details
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ground Fault Outlet -->
+                        <div class="product-card bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer" data-category="ground-plate">
+                            <!-- GFCI electrical outlet with ground fault protection -->
+                            <img src="https://images.unsplash.com/photo-1608042314453-ae338d80c427?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300" alt="GFCI Outlet" class="w-full h-48 object-cover rounded-t-lg">
+                            <div class="p-4">
+                                <h3 class="font-semibold text-gray-900 mb-2">GFCI Ground Fault Outlet</h3>
+                                <p class="text-gray-600 text-sm mb-3">Safety outlet with ground fault circuit interruption</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-primary">$34.99</span>
+                                    <button class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors">
+                                        View Details
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Circuit Breaker -->
+                        <div class="product-card bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer" data-category="construction">
+                            <!-- Electrical circuit breaker switch -->
+                            <img src="https://pixabay.com/get/g7943970d2ac628c03c9faf3f8dbf3dc15952bcc8b94670ea06fd080fe5d51c301b31c5afbec0c169ccda705e94c5209544742bee9d9c6171de50798848ccf183_1280.jpg" alt="Circuit Breaker" class="w-full h-48 object-cover rounded-t-lg">
+                            <div class="p-4">
+                                <h3 class="font-semibold text-gray-900 mb-2">20A Circuit Breaker</h3>
+                                <p class="text-gray-600 text-sm mb-3">Single pole circuit breaker for electrical panels</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-primary">$12.99</span>
+                                    <button class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors">
+                                        View Details
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Smoke Detector -->
+                        <div class="product-card bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer" data-category="smoke-alarm">
+                            <!-- Modern smoke detector/alarm system -->
+                            <img src="https://images.unsplash.com/photo-1558822011-d7c93255e78d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300" alt="Smoke Detector" class="w-full h-48 object-cover rounded-t-lg">
+                            <div class="p-4">
+                                <h3 class="font-semibold text-gray-900 mb-2">Smart Smoke Detector</h3>
+                                <p class="text-gray-600 text-sm mb-3">Advanced smoke detection with mobile alerts</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-primary">$89.99</span>
+                                    <button class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors">
+                                        View Details
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Extension Cord -->
+                        <div class="product-card bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer" data-category="accessories">
+                            <!-- Heavy duty electrical extension cord -->
+                            <img src="https://images.unsplash.com/photo-1614624532983-4ce03382d63d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300" alt="Extension Cord" class="w-full h-48 object-cover rounded-t-lg">
+                            <div class="p-4">
+                                <h3 class="font-semibold text-gray-900 mb-2">Heavy Duty Extension Cord</h3>
+                                <p class="text-gray-600 text-sm mb-3">50ft outdoor rated extension cord</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xl font-bold text-primary">$45.99</span>
+                                    <button class="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-md text-sm transition-colors">
+                                        View Details
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Load More Button -->
+                    <div class="text-center mt-12">
+                        <button class="bg-white border-2 border-primary text-primary hover:bg-primary hover:text-white px-8 py-3 rounded-lg font-semibold transition-colors">
+                            Load More Products
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- About Section -->
+            <section id="about" class="py-16 bg-white">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                        <div>
+                            <h2 class="text-3xl font-bold text-gray-900 mb-6">About ElectroLight</h2>
+                            <p class="text-lg text-gray-600 mb-6">
+                                With over 20 years of experience in the electrical industry, ElectroLight has been a trusted partner for contractors, electricians, and homeowners across the region.
+                            </p>
+                            <p class="text-gray-600 mb-6">
+                                We specialize in providing high-quality electrical products ranging from basic components to advanced smart home solutions. Our commitment to quality and customer service has made us a leader in the electrical supply industry.
+                            </p>
+                            <div class="grid grid-cols-2 gap-6">
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-primary">5000+</div>
+                                    <div class="text-gray-600">Products</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-primary">20+</div>
+                                    <div class="text-gray-600">Years Experience</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <!-- Professional electrical workshop/warehouse -->
+                            <img src="https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400" alt="ElectroLight Warehouse" class="rounded-lg shadow-lg w-full">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Contact Section -->
+            <section id="contact" class="py-16 bg-gray-50">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="text-center mb-12">
+                        <h2 class="text-3xl font-bold text-gray-900 mb-4">Get In Touch</h2>
+                        <p class="text-lg text-gray-600">Contact us for product inquiries or technical support</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                        <!-- Contact Form -->
+                        <div class="bg-white rounded-lg shadow-md p-8">
+                            <h3 class="text-xl font-semibold text-gray-900 mb-6">Send Us a Message</h3>
+                            <form class="space-y-6">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                                        <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                                        <input type="text" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                    <input type="email" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                                    <input type="tel" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                                    <textarea rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                                </div>
+                                <button type="submit" class="w-full bg-primary hover:bg-primary-dark text-white py-3 rounded-lg font-semibold transition-colors">
+                                    Send Message
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Contact Information & Map -->
+                        <div class="space-y-8">
+                            <div class="bg-white rounded-lg shadow-md p-8">
+                                <h3 class="text-xl font-semibold text-gray-900 mb-6">Contact Information</h3>
+                                <div class="space-y-4">
+                                    <div class="flex items-center space-x-4">
+                                        <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-map-marker-alt text-white"></i>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-gray-900">Address</div>
+                                            <div class="text-gray-600">123 Industrial Blvd, City, State 12345</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-4">
+                                        <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-phone text-white"></i>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-gray-900">Phone</div>
+                                            <div class="text-gray-600">(555) 123-4567</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-4">
+                                        <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-envelope text-white"></i>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-gray-900">Email</div>
+                                            <div class="text-gray-600">info@electrolight.com</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-4">
+                                        <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-clock text-white"></i>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium text-gray-900">Hours</div>
+                                            <div class="text-gray-600">Mon-Fri: 8AM-6PM, Sat: 9AM-4PM</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Interactive Map -->
+                            <div class="bg-white rounded-lg shadow-md p-8">
+                                <h3 class="text-xl font-semibold text-gray-900 mb-6">Find Us</h3>
+                                <div class="aspect-w-16 aspect-h-9 bg-gray-200 rounded-lg flex items-center justify-center">
+                                    <div class="text-center">
+                                        <i class="fas fa-map text-4xl text-gray-400 mb-4"></i>
+                                        <p class="text-gray-600">Interactive Map</p>
+                                        <p class="text-sm text-gray-500">Click to view directions</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                            <i class="fas fa-bolt text-white"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">ElectroLight</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">Professional electrical products for every project.</p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-300 hover:text-primary"><i class="fab fa-facebook"></i></a>
+                        <a href="#" class="text-gray-300 hover:text-primary"><i class="fab fa-twitter"></i></a>
+                        <a href="#" class="text-gray-300 hover:text-primary"><i class="fab fa-linkedin"></i></a>
+                        <a href="#" class="text-gray-300 hover:text-primary"><i class="fab fa-instagram"></i></a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="font-semibold mb-4">Quick Links</h4>
+                    <ul class="space-y-2 text-gray-300">
+                        <li><a href="#home" class="hover:text-primary">Home</a></li>
+                        <li><a href="#products" class="hover:text-primary">Products</a></li>
+                        <li><a href="#about" class="hover:text-primary">About</a></li>
+                        <li><a href="#contact" class="hover:text-primary">Contact</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold mb-4">Product Categories</h4>
+                    <ul class="space-y-2 text-gray-300">
+                        <li><a href="#" class="hover:text-primary">Lighting</a></li>
+                        <li><a href="#" class="hover:text-primary">Wiring</a></li>
+                        <li><a href="#" class="hover:text-primary">Safety</a></li>
+                        <li><a href="#" class="hover:text-primary">Tools</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold mb-4">Support</h4>
+                    <ul class="space-y-2 text-gray-300">
+                        <li><a href="#" class="hover:text-primary">Help Center</a></li>
+                        <li><a href="#" class="hover:text-primary">Returns</a></li>
+                        <li><a href="#" class="hover:text-primary">Shipping</a></li>
+                        <li><a href="admin.html" class="hover:text-primary">Admin Portal</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-8 pt-8 text-center text-gray-300">
+                <p>&copy; 2024 ElectroLight. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Product Detail Modal -->
+    <div id="product-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900">Product Details</h2>
+                        <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <img id="modal-image" src="" alt="" class="w-full rounded-lg">
+                        </div>
+                        <div>
+                            <h3 id="modal-title" class="text-xl font-semibold mb-4"></h3>
+                            <p id="modal-description" class="text-gray-600 mb-6"></p>
+                            <div class="space-y-4">
+                                <div>
+                                    <h4 class="font-semibold text-gray-900">Specifications</h4>
+                                    <ul class="text-gray-600 mt-2 space-y-1">
+                                        <li>• Professional grade construction</li>
+                                        <li>• UL Listed for safety compliance</li>
+                                        <li>• 5-year manufacturer warranty</li>
+                                        <li>• Easy installation design</li>
+                                    </ul>
+                                </div>
+                                <div class="flex items-center space-x-4">
+                                    <span id="modal-price" class="text-2xl font-bold text-primary"></span>
+                                    <button class="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-lg font-semibold transition-colors">
+                                        Add to Cart
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // Mobile menu functionality
+            const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            const sidebar = document.getElementById('sidebar');
+            const closeSidebar = document.getElementById('close-sidebar');
+
+            mobileMenuBtn.addEventListener('click', () => {
+                sidebar.classList.remove('-translate-x-full');
+            });
+
+            closeSidebar.addEventListener('click', () => {
+                sidebar.classList.add('-translate-x-full');
+            });
+
+            // Hero carousel functionality
+            const slides = document.querySelectorAll('.carousel-slide');
+            let currentSlide = 0;
+
+            function nextSlide() {
+                slides[currentSlide].style.opacity = '0';
+                currentSlide = (currentSlide + 1) % slides.length;
+                slides[currentSlide].style.opacity = '1';
+            }
+
+            setInterval(nextSlide, 4000);
+
+            // Category filtering
+            const categoryBtns = document.querySelectorAll('.category-btn');
+            const productCards = document.querySelectorAll('.product-card');
+
+            categoryBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const category = btn.dataset.category;
+                    
+                    productCards.forEach(card => {
+                        if (category === 'all' || card.dataset.category === category) {
+                            card.style.display = 'block';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+
+                    // Update active category
+                    categoryBtns.forEach(b => b.classList.remove('bg-primary', 'text-white'));
+                    btn.classList.add('bg-primary', 'text-white');
+                });
+            });
+
+            // Product modal functionality
+            const modal = document.getElementById('product-modal');
+            const closeModal = document.getElementById('close-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalDescription = document.getElementById('modal-description');
+            const modalPrice = document.getElementById('modal-price');
+            const modalImage = document.getElementById('modal-image');
+
+            productCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    const title = card.querySelector('h3').textContent;
+                    const description = card.querySelector('p').textContent;
+                    const price = card.querySelector('.text-primary').textContent;
+                    const image = card.querySelector('img').src;
+
+                    modalTitle.textContent = title;
+                    modalDescription.textContent = description;
+                    modalPrice.textContent = price;
+                    modalImage.src = image;
+                    modalImage.alt = title;
+
+                    modal.classList.remove('hidden');
+                });
+            });
+
+            closeModal.addEventListener('click', () => {
+                modal.classList.add('hidden');
+            });
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                }
+            });
+
+            // Smooth scrolling for navigation links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const target = document.querySelector(this.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                });
+            });
+
+            // Search functionality placeholder
+            const searchInput = document.querySelector('input[placeholder="Search products..."]');
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                productCards.forEach(card => {
+                    const title = card.querySelector('h3').textContent.toLowerCase();
+                    const description = card.querySelector('p').textContent.toLowerCase();
+                    
+                    if (title.includes(searchTerm) || description.includes(searchTerm)) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+
+            // TODO: Implement business logic for:
+            // - Product management (CRUD operations)
+            // - Shopping cart functionality
+            // - User authentication
+            // - Order processing
+            // - Payment integration
+            // - Admin panel access control
+            // - Real-time inventory updates
+            // - Product search and filtering
+            // - Form validation and submission
+        })();
+    </script>
+</body>
+</html>
