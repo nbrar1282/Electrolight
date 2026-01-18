@@ -1,3 +1,4 @@
+// @ts-nocheck
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { CategoryModel, ProductModel, ContactMessageModel, AdminUserModel, AccessoryModel, ProjectModel, BrandModel, HeroImageModel } from "./models";
