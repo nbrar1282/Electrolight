@@ -1,4 +1,3 @@
-// @ts-nocheck
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { CategoryModel, ProductModel, ContactMessageModel, AdminUserModel, AccessoryModel, ProjectModel, BrandModel, HeroImageModel } from "./models";
@@ -467,15 +466,7 @@ export class MongoStorage implements IStorage {
     return result.deletedCount > 0;
   }
 
-  async clearAllData(): Promise<void> {
-    // Clear all products, accessories, and projects
-    // Keep categories and admin users
-    await ProductModel.deleteMany({});
-    await AccessoryModel.deleteMany({});
-    await ProjectModel.deleteMany({});
-    console.log("✅ All data cleared successfully");
-  }
-
+  
   // Hero Images
   async getHeroImages(): Promise<HeroImage[]> {
     const heroImages = await HeroImageModel.find().sort({ order: 1, createdAt: -1 });
