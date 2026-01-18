@@ -6,6 +6,9 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { connectToDatabase } from "./db";
 
+console.log("VERCEL:", !!process.env.VERCEL);
+console.log("MONGODB_URI defined:", !!process.env.MONGODB_URI);
+
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
