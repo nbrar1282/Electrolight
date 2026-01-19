@@ -18,7 +18,7 @@ interface HeaderProps {
 }
 
 export default function Header({ searchQuery, onSearchChange, onProductSelect, selectedBrand, onBrandSelect }: HeaderProps) {
-  const [location, setLocation] = useLocation(); // Getting location to check current path
+  const [location, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -74,29 +74,32 @@ export default function Header({ searchQuery, onSearchChange, onProductSelect, s
     window.scrollTo(0, 0); 
   };
 
-  // --- FIX IS HERE ---
   const handleBrandSelect = (brand: string | null) => {
-    // 1. If we are on the products page and have a handler, just filter in place.
     if (onBrandSelect && location.startsWith('/products')) {
       onBrandSelect(brand);
-    } 
-    // 2. Otherwise (Home/About pages), we MUST navigate to the products page.
-    else {
+    } else {
       if (brand) {
         setLocation(`/products?brand=${encodeURIComponent(brand)}`);
       } else {
         setLocation('/products');
       }
     }
-    
-    // 3. Always scroll to top
     window.scrollTo(0, 0);
   };
 
+  // --- FIX 1: Manually calculate scroll position with Header Offset ---
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      // Header is 'h-20' (80px). We subtract 90px to give a 10px visible buffer above the heading.
+      const headerOffset = 90; 
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.scrollY - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
     }
   };
 
@@ -328,8 +331,9 @@ export default function Header({ searchQuery, onSearchChange, onProductSelect, s
               <nav className="space-y-2">
                 <button 
                   onClick={() => {
-                    handleNavigation('home');
                     setIsMobileMenuOpen(false);
+                    // --- FIX 2: Wait for menu to close before navigating ---
+                    setTimeout(() => handleNavigation('home'), 100);
                   }}
                   className="block w-full text-left px-3 py-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
                 >
@@ -337,8 +341,8 @@ export default function Header({ searchQuery, onSearchChange, onProductSelect, s
                 </button>
                 <button 
                   onClick={() => {
-                    navigateAndScrollTop('/products');
                     setIsMobileMenuOpen(false);
+                    navigateAndScrollTop('/products');
                   }}
                   className="block w-full text-left px-3 py-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
                 >
@@ -346,8 +350,8 @@ export default function Header({ searchQuery, onSearchChange, onProductSelect, s
                 </button>
                 <button 
                   onClick={() => {
-                    navigateAndScrollTop('/projects');
                     setIsMobileMenuOpen(false);
+                    navigateAndScrollTop('/projects');
                   }}
                   className="block w-full text-left px-3 py-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
                 >
@@ -355,8 +359,9 @@ export default function Header({ searchQuery, onSearchChange, onProductSelect, s
                 </button>
                 <button 
                   onClick={() => {
-                    handleNavigation('about');
+                    // --- FIX 2: Wait for menu to close before navigating ---
                     setIsMobileMenuOpen(false);
+                    setTimeout(() => handleNavigation('about'), 100);
                   }}
                   className="block w-full text-left px-3 py-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
                 >
@@ -364,8 +369,9 @@ export default function Header({ searchQuery, onSearchChange, onProductSelect, s
                 </button>
                 <button 
                   onClick={() => {
-                    handleNavigation('contact');
+                    // --- FIX 2: Wait for menu to close before navigating ---
                     setIsMobileMenuOpen(false);
+                    setTimeout(() => handleNavigation('contact'), 100);
                   }}
                   className="block w-full text-left px-3 py-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
                 >
