@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Calendar, MapPin, Eye } from "lucide-react";
 import MediaDisplay from "@/components/media-display";
 import type { Project } from "@shared/schema";
@@ -50,10 +49,14 @@ export default function ProjectsCarousel() {
     setCurrentIndex(index);
   };
 
-  // --- NEW HELPER: Navigate and Scroll Top ---
-  const handleNavigation = (path: string) => {
-    setLocation(path);
-    window.scrollTo(0, 0);
+  // FIX: Handle navigation with a delayed scroll to ensure it works
+  const handleViewAllProjects = () => {
+    setLocation('/projects');
+    
+    // Small delay ensures the new page renders before we try to scroll
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }, 100);
   };
 
   if (isLoading) {
@@ -127,23 +130,24 @@ export default function ProjectsCarousel() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
               </div>
 
-              {/* Project Content Overlay */}
-              <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 text-white">
+              {/* Project Content Overlay - Minimal on mobile */}
+              <div className="absolute bottom-0 left-0 right-0 p-4 md:p-8 text-white">
                 <div className="max-w-4xl">
-                  {/* UPDATED: Title Click */}
                   <h3 
-                    className="text-2xl md:text-3xl font-bold mb-3 leading-tight cursor-pointer hover:text-primary-foreground/90 transition-colors"
-                    onClick={() => handleNavigation(`/project/${projects[currentIndex].id}`)}
+                    className="text-lg md:text-3xl font-bold mb-1 md:mb-3 leading-tight cursor-pointer hover:text-primary-foreground/90 transition-colors"
+                    onClick={() => setLocation(`/project/${projects[currentIndex].id}`)}
                   >
                     {projects[currentIndex].title}
                   </h3>
 
-                  <p className="text-lg text-gray-200 mb-4 leading-relaxed max-w-3xl">
+                  {/* Description hidden on mobile */}
+                  <p className="hidden md:block text-lg text-gray-200 mb-4 leading-relaxed max-w-3xl">
                     {projects[currentIndex].description}
                   </p>
 
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300">
+                  <div className="flex flex-wrap items-center justify-between gap-2 md:gap-4">
+                    {/* Location and date hidden on mobile */}
+                    <div className="hidden md:flex flex-wrap items-center gap-4 text-sm text-gray-300">
                       <div className="flex items-center gap-1">
                         <MapPin className="w-4 h-4" />
                         <span>{projects[currentIndex].location}</span>
@@ -157,10 +161,10 @@ export default function ProjectsCarousel() {
                       </div>
                     </div>
                     
-                    {/* UPDATED: 'View Project' Button Click */}
                     <Button 
-                      onClick={() => handleNavigation(`/project/${projects[currentIndex].id}`)}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                      onClick={() => setLocation(`/project/${projects[currentIndex].id}`)}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm md:text-base"
+                      size="sm"
                     >
                       <Eye className="w-4 h-4 mr-2" />
                       View Project
@@ -211,12 +215,12 @@ export default function ProjectsCarousel() {
           )}
         </div>
 
-        {/* UPDATED: 'View All Projects' Button Click */}
+        {/* View All Projects Button */}
         <div className="text-center mt-12">
           <Button 
             variant="outline" 
             size="lg"
-            onClick={() => handleNavigation('/projects')}
+            onClick={handleViewAllProjects}
             className="bg-background hover:bg-muted"
           >
             View All Projects

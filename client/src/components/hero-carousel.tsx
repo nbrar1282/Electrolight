@@ -87,36 +87,36 @@ export default function HeroCarousel() {
           
           {/* Content Overlay */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-center px-4 max-w-5xl pointer-events-auto">
-              <div className="flex flex-col items-center justify-center mb-4 md:mb-6">
-                <h1 className="text-5xl md:text-8xl font-black text-white mb-2 tracking-tighter drop-shadow-2xl italic select-none">
+            <div className="text-center px-4 md:px-6 w-full max-w-5xl pointer-events-auto">
+              <div className="flex flex-col items-center justify-center mb-4 md:mb-8">
+                <h1 className="text-4xl sm:text-6xl md:text-8xl font-black text-white mb-2 tracking-tighter drop-shadow-2xl italic select-none">
                   ELECTRO<span className="text-orange-500 relative inline-block">
                     LIGHT
                     <span className="absolute inset-0 bg-orange-500 blur-3xl opacity-20 animate-pulse pointer-events-none"></span>
                     <span className="absolute -inset-1 bg-orange-400 blur-lg opacity-10 animate-pulse pointer-events-none"></span>
                   </span>
                 </h1>
-                <div className="w-32 md:w-48 h-1.5 bg-orange-500 rounded-full shadow-[0_0_20px_rgba(249,115,22,0.9)] animate-pulse relative">
+                <div className="w-24 sm:w-32 md:w-48 h-1 md:h-1.5 bg-orange-500 rounded-full shadow-[0_0_20px_rgba(249,115,22,0.9)] animate-pulse relative">
                   <div className="absolute inset-0 bg-white blur-[2px] opacity-30 animate-[pulse_1.5s_ease-in-out_infinite]"></div>
                 </div>
               </div>
               
-              <div className="space-y-4 md:space-y-6">
-                <h2 className="text-2xl md:text-5xl font-extrabold mb-2 tracking-tight uppercase bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-gray-400 drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)]">
+              <div className="space-y-3 md:space-y-6">
+                <h2 className="text-xl sm:text-3xl md:text-5xl font-extrabold mb-1 tracking-tight uppercase bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-gray-400 drop-shadow-[0_2px_10px_rgba(255,255,255,0.2)] leading-tight">
                   Professional Electrical Solutions
                 </h2>
                 
-                <p className="text-lg md:text-2xl text-gray-100 font-medium max-w-3xl mx-auto leading-relaxed drop-shadow-lg relative">
+                <p className="text-sm sm:text-lg md:text-2xl text-gray-100 font-medium max-w-2xl mx-auto leading-relaxed drop-shadow-lg relative px-2">
                   Empowering your projects with premium components and industrial-grade reliability. 
-                  <span className="block mt-2 text-orange-400 font-bold tracking-widest text-sm md:text-base uppercase drop-shadow-[0_0_12px_rgba(249,115,22,0.5)]">
+                  <span className="block mt-2 text-orange-400 font-bold tracking-[0.2em] text-[10px] sm:text-xs md:text-base uppercase drop-shadow-[0_0_12px_rgba(249,115,22,0.5)]">
                     Residential • Commercial • Industrial
                   </span>
                 </p>
 
-                <div className="pt-6">
+                <div className="pt-4 md:pt-8">
                   <Button 
                     size="lg"
-                    className="bg-orange-500 hover:bg-orange-600 text-white px-10 py-6 md:text-xl font-bold uppercase tracking-wider rounded-lg border-b-4 border-orange-700 active:border-b-0 active:translate-y-1 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)] hover:shadow-[0_15px_25px_rgba(249,115,22,0.4)]"
+                    className="bg-orange-500 hover:bg-orange-600 text-white px-6 sm:px-10 py-5 sm:py-6 text-sm sm:text-xl font-bold uppercase tracking-wider rounded-lg border-b-4 border-orange-700 active:border-b-0 active:translate-y-1 transition-all shadow-[0_10px_20px_rgba(249,115,22,0.3)] hover:shadow-[0_15px_25px_rgba(249,115,22,0.4)] h-auto"
                     onClick={scrollToProducts}
                   >
                     Browse Catalog
