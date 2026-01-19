@@ -31,21 +31,29 @@ export class MongoStorage implements IStorage {
   private async seedBasicData() {
     try {
       // Check if admin user already exists
-      const existingAdmin = await AdminUserModel.findOne({ username: "admin" });
-      if (!existingAdmin) {
-        // Seed admin user (owner access)
-        const hashedPassword = await bcrypt.hash("admin123", 10);
-        const adminUser = new AdminUserModel({
-          _id: randomUUID(),
-          username: "admin",
-          password: hashedPassword,
-          email: "admin@electrolight.com",
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        });
-        await adminUser.save();
-        console.log("✅ Admin user seeded");
+      const username = process.env.ADMIN_USERNAME;
+      const password = process.env.ADMIN_PASSWORD;
+      const email = process.env.ADMIN_EMAIL || "admin@electrolight.com";
+
+      if (!username || !password) {
+        console.log("⚠️ ADMIN_USERNAME / ADMIN_PASSWORD not set; skipping admin seed");
+      } else {
+        const existingAdmin = await AdminUserModel.findOne({ username });
+        if (!existingAdmin) {
+          const hashedPassword = await bcrypt.hash(password, 12);
+          const adminUser = new AdminUserModel({
+            _id: randomUUID(),
+            username,
+            password: hashedPassword,
+            email,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+          });
+          await adminUser.save();
+          console.log("✅ Admin user seeded from env");
+        }
       }
+
 
       // Only seed categories if none exist
       const existingCategories = await CategoryModel.countDocuments();

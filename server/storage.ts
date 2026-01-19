@@ -75,16 +75,27 @@ export class MemStorage implements IStorage {
 
   private async seedData() {
     // Seed admin user (owner access)
-    const hashedPassword = await bcrypt.hash("admin123", 10);
-    const adminUser: AdminUser = {
-      id: randomUUID(),
-      username: "admin",
-      password: hashedPassword,
-      email: "admin@electrolight.com",
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    };
-    this.adminUsers.set(adminUser.username, adminUser);
+    // Seed admin user (dev only, from env)
+    if (process.env.NODE_ENV !== "production") {
+      const username = process.env.ADMIN_USERNAME || "admin";
+      const password = process.env.ADMIN_PASSWORD;
+      const email = process.env.ADMIN_EMAIL || "admin@electrolight.com";
+
+      if (!password) {
+        console.log("⚠️ ADMIN_PASSWORD not set; skipping MemStorage admin seed");
+      } else {
+        const hashedPassword = await bcrypt.hash(password, 12);
+        const adminUser: AdminUser = {
+          id: randomUUID(),
+          username,
+          password: hashedPassword,
+          email,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        };
+        this.adminUsers.set(adminUser.username, adminUser);
+      }
+    }
 
     // Seed categories
     const categoriesData: InsertCategory[] = [
