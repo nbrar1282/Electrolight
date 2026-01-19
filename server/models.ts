@@ -174,6 +174,37 @@ brandSchema.set('toJSON', {
   }
 });
 
+// ... existing imports
+
+// ADD THIS SCHEMA
+const siteSettingsSchema = new Schema({
+  _id: { type: String, default: "default_settings" }, // Fixed ID to ensure singleton
+  phoneNumber: { type: String, default: "(555) 123-4567" },
+  email: { type: String, default: "info@electrolight.com" },
+  address: { type: String, default: "123 Industrial Blvd, City, State 12345" },
+  hours: { type: String, default: "Mon-Fri: 8AM-6PM, Sat: 9AM-4PM" },
+  facebookUrl: { type: String, default: "#" },
+  twitterUrl: { type: String, default: "#" },
+  linkedinUrl: { type: String, default: "#" },
+  instagramUrl: { type: String, default: "#" },
+  footerText: { type: String, default: "Professional electrical products for every project." },
+  updatedAt: { type: String, default: () => new Date().toISOString() },
+}, { 
+  timestamps: false,
+  _id: false 
+});
+
+siteSettingsSchema.set('toJSON', {
+  transform: function(doc: any, ret: any) {
+    ret.id = ret._id;
+    delete ret._id;
+    delete ret.__v;
+    return ret;
+  }
+});
+
+export const SiteSettingsModel = mongoose.model('SiteSettings', siteSettingsSchema);
+
 // Export Models
 export const CategoryModel = mongoose.model<Category & Document>('Category', categorySchema);
 export const ProductModel = mongoose.model<Product & Document>('Product', productSchema);

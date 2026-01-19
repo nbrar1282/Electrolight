@@ -7,7 +7,7 @@ import BrandFilter from "@/components/brand-filter";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import type { Product, Accessory } from "@shared/schema";
+import type { Product, Accessory, SiteSettings } from "@shared/schema";
 
 interface HeaderProps {
   searchQuery: string;
@@ -22,6 +22,11 @@ export default function Header({ searchQuery, onSearchChange, onProductSelect, s
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // 1. Fetch Global Settings (for Phone Number)
+  const { data: settings } = useQuery<SiteSettings>({
+    queryKey: ['/api/site-settings'],
+  });
 
   const { data: searchResults } = useQuery<{products: Product[], accessories: Accessory[]}>({
     queryKey: [`/api/search?q=${encodeURIComponent(searchQuery.trim())}`],
@@ -87,11 +92,11 @@ export default function Header({ searchQuery, onSearchChange, onProductSelect, s
     window.scrollTo(0, 0);
   };
 
-  // --- FIX 1: Manually calculate scroll position with Header Offset ---
+  // --- FIX: Manually calculate scroll position with Header Offset ---
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
-      // Header is 'h-20' (80px). We subtract 90px to give a 10px visible buffer above the heading.
+      // Header is 'h-20' (80px). We subtract 90px to give a 10px visible buffer.
       const headerOffset = 90; 
       const elementPosition = element.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.scrollY - headerOffset;
@@ -170,9 +175,12 @@ export default function Header({ searchQuery, onSearchChange, onProductSelect, s
             </nav>
 
             <div className="flex items-center space-x-4">
+              {/* Dynamic Phone Number from Database */}
               <div className="hidden xl:flex items-center space-x-2 px-3 py-2 bg-primary/10 dark:bg-primary/20 rounded-full border border-primary/20 hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors">
                 <Phone className="h-4 w-4 text-primary" />
-                <span className="font-semibold text-primary text-sm">(555) 123-4567</span>
+                <span className="font-semibold text-primary text-sm">
+                  {settings?.phoneNumber || "(555) 123-4567"}
+                </span>
               </div>
               
               <div className="relative" ref={searchRef}>
@@ -332,7 +340,7 @@ export default function Header({ searchQuery, onSearchChange, onProductSelect, s
                 <button 
                   onClick={() => {
                     setIsMobileMenuOpen(false);
-                    // --- FIX 2: Wait for menu to close before navigating ---
+                    // --- FIX: Wait for menu to close before navigating ---
                     setTimeout(() => handleNavigation('home'), 100);
                   }}
                   className="block w-full text-left px-3 py-2 text-gray-700 dark:text-gray-300 hover:text-primary dark:hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
@@ -359,7 +367,7 @@ export default function Header({ searchQuery, onSearchChange, onProductSelect, s
                 </button>
                 <button 
                   onClick={() => {
-                    // --- FIX 2: Wait for menu to close before navigating ---
+                    // --- FIX: Wait for menu to close before navigating ---
                     setIsMobileMenuOpen(false);
                     setTimeout(() => handleNavigation('about'), 100);
                   }}
@@ -369,7 +377,7 @@ export default function Header({ searchQuery, onSearchChange, onProductSelect, s
                 </button>
                 <button 
                   onClick={() => {
-                    // --- FIX 2: Wait for menu to close before navigating ---
+                    // --- FIX: Wait for menu to close before navigating ---
                     setIsMobileMenuOpen(false);
                     setTimeout(() => handleNavigation('contact'), 100);
                   }}

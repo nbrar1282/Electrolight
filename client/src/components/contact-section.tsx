@@ -5,10 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Phone, Mail, Clock } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { InsertContactMessage } from "@shared/schema";
+import type { InsertContactMessage, SiteSettings } from "@shared/schema";
 
 export default function ContactSection() {
   const [formData, setFormData] = useState({
@@ -20,6 +20,11 @@ export default function ContactSection() {
   });
 
   const { toast } = useToast();
+
+  // 1. Fetch Global Settings
+  const { data: settings } = useQuery<SiteSettings>({
+    queryKey: ['/api/site-settings'],
+  });
 
   const contactMutation = useMutation({
     mutationFn: async (data: InsertContactMessage) => {
@@ -150,8 +155,11 @@ export default function ContactSection() {
                     <MapPin className="text-white h-5 w-5" />
                   </div>
                   <div>
-                    <div className="font-medium text-gray-900">Address</div>
-                    <div className="text-gray-600">123 Industrial Blvd, City, State 12345</div>
+                    <div className="font-medium text-gray-900 dark:text-gray-100">Address</div>
+                    {/* Dynamic Address */}
+                    <div className="text-gray-600 dark:text-gray-400">
+                      {settings?.address || "123 Industrial Blvd, City, State 12345"}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-4">
@@ -159,8 +167,11 @@ export default function ContactSection() {
                     <Phone className="text-white h-5 w-5" />
                   </div>
                   <div>
-                    <div className="font-medium text-gray-900">Phone</div>
-                    <div className="text-gray-600">(555) 123-4567</div>
+                    <div className="font-medium text-gray-900 dark:text-gray-100">Phone</div>
+                    {/* Dynamic Phone */}
+                    <div className="text-gray-600 dark:text-gray-400">
+                      {settings?.phoneNumber || "(555) 123-4567"}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-4">
@@ -168,8 +179,11 @@ export default function ContactSection() {
                     <Mail className="text-white h-5 w-5" />
                   </div>
                   <div>
-                    <div className="font-medium text-gray-900">Email</div>
-                    <div className="text-gray-600">info@electrolight.com</div>
+                    <div className="font-medium text-gray-900 dark:text-gray-100">Email</div>
+                    {/* Dynamic Email */}
+                    <div className="text-gray-600 dark:text-gray-400">
+                      {settings?.email || "info@electrolight.com"}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center space-x-4">
@@ -177,8 +191,11 @@ export default function ContactSection() {
                     <Clock className="text-white h-5 w-5" />
                   </div>
                   <div>
-                    <div className="font-medium text-gray-900">Hours</div>
-                    <div className="text-gray-600">Mon-Fri: 8AM-6PM, Sat: 9AM-4PM</div>
+                    <div className="font-medium text-gray-900 dark:text-gray-100">Hours</div>
+                    {/* Dynamic Hours */}
+                    <div className="text-gray-600 dark:text-gray-400">
+                      {settings?.hours || "Mon-Fri: 8AM-6PM, Sat: 9AM-4PM"}
+                    </div>
                   </div>
                 </div>
               </CardContent>

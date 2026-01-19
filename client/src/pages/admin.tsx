@@ -13,8 +13,13 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Link, useLocation } from "wouter";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Product, Category, ContactMessage, Accessory, Project, Brand, HeroImage, InsertProduct, InsertAccessory, InsertProject, InsertCategory, InsertBrand, InsertHeroImage } from "@shared/schema";
+import type { SiteSettings, InsertSiteSettings } from "@shared/schema";
+import { Settings } from "lucide-react"; // Import Settings icon
+
 
 export default function Admin() {
+  
+
   const [isEditing, setIsEditing] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditingAccessory, setIsEditingAccessory] = useState(false);
@@ -33,7 +38,8 @@ export default function Admin() {
   
   // Hero image upload state
   const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
-  const [activeTab, setActiveTab] = useState<'products' | 'accessories' | 'contacts' | 'projects' | 'brands' | 'categories' | 'data-management' | 'hero-images'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'accessories' | 'contacts' | 'projects' | 'brands' | 'categories' | 'data-management' | 'hero-images' | 'settings'>('products');
+  
   const [formData, setFormData] = useState<Partial<InsertProduct>>({
     name: "",
     description: "",
@@ -100,6 +106,10 @@ export default function Admin() {
   const [, setLocation] = useLocation();
   const { isAuthenticated, admin, isLoading } = useAdminAuth();
 
+  const { data: siteSettings } = useQuery<SiteSettings>({
+    queryKey: ['/api/site-settings'],
+    enabled: isAuthenticated,
+  });
   // Always call all hooks first, regardless of auth state
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ['/api/products'],
@@ -137,6 +147,19 @@ export default function Admin() {
   });
 
   // All mutation hooks must be defined before any early returns
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (data: InsertSiteSettings) => {
+      const response = await apiRequest('POST', '/api/site-settings', data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/site-settings'] });
+      toast({ title: "Settings updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update settings", variant: "destructive" });
+    },
+  });
   const createProductMutation = useMutation({
     mutationFn: async (data: InsertProduct) => {
       const response = await apiRequest('POST', '/api/products', data);
@@ -517,6 +540,12 @@ export default function Admin() {
       });
     },
   });
+  const [settingsForm, setSettingsForm] = useState<Partial<InsertSiteSettings>>({});
+  useEffect(() => {
+    if (siteSettings) {
+      setSettingsForm(siteSettings);
+    }
+  }, [siteSettings]);
 
   // Authentication effects and early returns - after all hooks
   useEffect(() => {
@@ -1176,6 +1205,16 @@ export default function Admin() {
             {/* Tab Navigation */}
             <div className="flex space-x-4 mt-4">
               <button
+                onClick={() => setActiveTab('settings')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'settings' 
+                    ? 'bg-primary text-white' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                Global Settings
+              </button>
+              <button
                 onClick={() => setActiveTab('products')}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                   activeTab === 'products' 
@@ -1277,6 +1316,108 @@ export default function Admin() {
         </div>
 
         {/* Products Tab Content */}
+        {activeTab === 'settings' && (
+          <div className="max-w-2xl mx-auto">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-6 w-6" />
+                  Site Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  updateSettingsMutation.mutate(settingsForm as InsertSiteSettings);
+                }} className="space-y-6">
+                  
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-lg border-b pb-2">Contact Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Phone Number</Label>
+                        <Input 
+                          value={settingsForm.phoneNumber || ''} 
+                          onChange={e => setSettingsForm({...settingsForm, phoneNumber: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <Label>Email Address</Label>
+                        <Input 
+                          value={settingsForm.email || ''} 
+                          onChange={e => setSettingsForm({...settingsForm, email: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Physical Address</Label>
+                      <Input 
+                        value={settingsForm.address || ''} 
+                        onChange={e => setSettingsForm({...settingsForm, address: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label>Business Hours</Label>
+                      <Input 
+                        value={settingsForm.hours || ''} 
+                        onChange={e => setSettingsForm({...settingsForm, hours: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-lg border-b pb-2">Social Media Links</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Facebook URL</Label>
+                        <Input 
+                          value={settingsForm.facebookUrl || ''} 
+                          onChange={e => setSettingsForm({...settingsForm, facebookUrl: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <Label>Twitter/X URL</Label>
+                        <Input 
+                          value={settingsForm.twitterUrl || ''} 
+                          onChange={e => setSettingsForm({...settingsForm, twitterUrl: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <Label>LinkedIn URL</Label>
+                        <Input 
+                          value={settingsForm.linkedinUrl || ''} 
+                          onChange={e => setSettingsForm({...settingsForm, linkedinUrl: e.target.value})}
+                        />
+                      </div>
+                      <div>
+                        <Label>Instagram URL</Label>
+                        <Input 
+                          value={settingsForm.instagramUrl || ''} 
+                          onChange={e => setSettingsForm({...settingsForm, instagramUrl: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-lg border-b pb-2">Footer</h3>
+                    <div>
+                      <Label>Footer Text</Label>
+                      <Textarea 
+                        value={settingsForm.footerText || ''} 
+                        onChange={e => setSettingsForm({...settingsForm, footerText: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <Button type="submit" className="w-full" disabled={updateSettingsMutation.isPending}>
+                    {updateSettingsMutation.isPending ? 'Saving...' : 'Save Settings'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
         {activeTab === 'products' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
             {/* Product Form */}

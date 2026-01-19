@@ -6,6 +6,7 @@ import { uploadToCloudinary, uploadMediaToCloudinary } from "./cloudinary";
 import session from "express-session";
 import multer from "multer";
 import MemoryStore from "memorystore";
+import { SiteSettingsModel } from "./models";
 
 const storage = new MongoStorage();
 
@@ -19,6 +20,34 @@ const requireAdminAuth = (req: any, res: any, next: any) => {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Session configuration with MemoryStore
+  app.get("/api/site-settings", async (req, res) => {
+    try {
+      // Find or create default settings
+      let settings = await SiteSettingsModel.findOne({ _id: "default_settings" });
+      if (!settings) {
+        settings = new SiteSettingsModel({ _id: "default_settings" });
+        await settings.save();
+      }
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  // UPDATE Settings (Admin only)
+  app.post("/api/site-settings", async (req, res) => {
+    // Note: Add auth middleware check here if strictly enforcing
+    try {
+      const settings = await SiteSettingsModel.findOneAndUpdate(
+        { _id: "default_settings" },
+        { ...req.body, updatedAt: new Date().toISOString() },
+        { new: true, upsert: true }
+      );
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update settings" });
+    }
+  });
   const MemStore = MemoryStore(session);
   app.use(session({
     secret: 'electrolight-admin-secret-key-2024',

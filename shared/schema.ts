@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, decimal, integer, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+;
 
 export const categories = pgTable("categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -65,6 +66,21 @@ export const brands = pgTable("brands", {
   website: text("website"),
   isActive: boolean("is_active").default(true),
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// ADD THIS TABLE
+export const siteSettings = pgTable("site_settings", {
+  id: varchar("id").primaryKey().default("default_settings"), // Fixed ID
+  phoneNumber: text("phone_number").default("(555) 123-4567"),
+  email: text("email").default("info@electrolight.com"),
+  address: text("address").default("123 Industrial Blvd, City, State 12345"),
+  hours: text("hours").default("Mon-Fri: 8AM-6PM, Sat: 9AM-4PM"),
+  facebookUrl: text("facebook_url"),
+  twitterUrl: text("twitter_url"),
+  linkedinUrl: text("linkedin_url"),
+  instagramUrl: text("instagram_url"),
+  footerText: text("footer_text").default("Professional electrical products for every project."),
+  updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 // For local storage favorites (client-side only)
@@ -172,3 +188,6 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
 
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
+export const insertSiteSettingsSchema = createInsertSchema(siteSettings);
+export type SiteSettings = typeof siteSettings.$inferSelect;
+export type InsertSiteSettings = z.infer<typeof insertSiteSettingsSchema>;
