@@ -9,6 +9,7 @@ const categorySchema = new Schema({
   name: { type: String, required: true },
   slug: { type: String, required: true, unique: true },
   imageUrl: { type: String, required: true },
+  featured: { type: Boolean, default: false },
 }, { 
   timestamps: false,
   _id: false 

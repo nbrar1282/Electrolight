@@ -80,13 +80,15 @@ export default function Admin() {
   // Category management state
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  
+  // UPDATED: Added featured field to initial state
   const [categoryFormData, setCategoryFormData] = useState<Partial<InsertCategory>>({
     name: "",
     slug: "",
-    icon: "fas fa-lightbulb",
+    imageUrl: "",
+    featured: false, 
   });
 
-  // Removed icon picker - now using image upload
   // Loading state for category image upload
   const [uploadingCategoryImage, setUploadingCategoryImage] = useState(false);
 
@@ -785,6 +787,8 @@ export default function Admin() {
       name: category.name,
       slug: category.slug,
       imageUrl: category.imageUrl,
+      // UPDATED: Handle featured state
+      featured: category.featured || false,
     });
     setIsEditingCategory(true);
     setActiveTab('categories');
@@ -804,6 +808,8 @@ export default function Admin() {
       name: "",
       slug: "",
       imageUrl: "",
+      // UPDATED: Reset featured state
+      featured: false,
     });
     setIsEditingCategory(false);
     setEditingCategory(null);
@@ -2830,6 +2836,18 @@ export default function Admin() {
                       </div>
                     </div>
 
+                    {/* Featured Category Checkbox */}
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="categoryFeatured"
+                        checked={categoryFormData.featured || false}
+                        onChange={(e) => setCategoryFormData({ ...categoryFormData, featured: e.target.checked })}
+                        className="w-4 h-4 rounded border-gray-300"
+                      />
+                      <Label htmlFor="categoryFeatured">Featured Category (Show on Home Page)</Label>
+                    </div>
+
                     <Button type="submit" className="w-full" disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending}>
                       {isEditingCategory ? 'Update Category' : 'Create Category'}
                     </Button>
@@ -2869,6 +2887,7 @@ export default function Admin() {
                           <TableHead>Image</TableHead>
                           <TableHead>Category Name</TableHead>
                           <TableHead className="hidden md:table-cell">Slug</TableHead>
+                          <TableHead className="text-center">Featured</TableHead>
                           <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2885,6 +2904,13 @@ export default function Admin() {
                             <TableCell className="font-medium">{category.name}</TableCell>
                             <TableCell className="hidden md:table-cell font-mono text-sm text-gray-600">
                               {category.slug}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {category.featured && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                                  Featured
+                                </span>
+                              )}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
@@ -2909,7 +2935,7 @@ export default function Admin() {
                         ))}
                         {categories.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                            <TableCell colSpan={5} className="text-center py-8 text-gray-500">
                               No categories found. Create your first category above.
                             </TableCell>
                           </TableRow>

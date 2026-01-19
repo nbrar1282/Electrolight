@@ -13,12 +13,24 @@ export default function CategoryNav({ categories }: CategoryNavProps) {
     window.scrollTo(0, 0);
   };
 
+  // Logic to filter and limit categories
+  // 1. Get featured categories
+  let displayCategories = categories.filter(cat => cat.featured);
+
+  // 2. If no categories are marked featured, fall back to showing the first 8 of all categories
+
+  // 3. Slice to ensure max 8
+  displayCategories = displayCategories.slice(0, 8);
+
+  // 3. Slice to ensure max 8
+  displayCategories = displayCategories.slice(0, 8);
+
   return (
     <section className="py-16 bg-white dark:bg-gray-900">
       <div className="max-w-[1600px] 2xl:max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
         <h2 className="text-4xl font-bold text-center mb-12 text-gray-900 dark:text-white">Shop by category</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {categories.map((category) => (
+          {displayCategories.map((category) => (
             <div
               key={category.id}
               onClick={() => handleCategoryClick(category.slug)}
