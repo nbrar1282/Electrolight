@@ -6,7 +6,7 @@ if (!MONGODB_URI) {
   console.warn('⚠️ MONGODB_URI not found in environment variables. Falling back to default connection string for development.');
 }
 
-const connectionString = MONGODB_URI || 'mongodb+srv://navdeep:brarbrar@electrolight.ikzyr.mongodb.net/electrolight';
+const connectionString = MONGODB_URI;
 
 let isConnected = false;
 
