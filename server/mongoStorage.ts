@@ -36,22 +36,27 @@ export class MongoStorage implements IStorage {
       const email = process.env.ADMIN_EMAIL || "admin@electrolight.com";
 
       if (!username || !password) {
-        console.log("⚠️ ADMIN_USERNAME / ADMIN_PASSWORD not set; skipping admin seed");
+        console.log("⚠️ ADMIN_USERNAME / ADMIN_PASSWORD not set; skipping admin sync");
       } else {
-        const existingAdmin = await AdminUserModel.findOne({ username });
-        if (!existingAdmin) {
-          const hashedPassword = await bcrypt.hash(password, 12);
-          const adminUser = new AdminUserModel({
-            _id: randomUUID(),
-            username,
-            password: hashedPassword,
-            email,
-            isActive: true,
-            createdAt: new Date().toISOString(),
-          });
-          await adminUser.save();
-          console.log("✅ Admin user seeded from env");
-        }
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        await AdminUserModel.updateOne(
+          { username },
+          {
+            $set: {
+              password: hashedPassword,
+              email,
+              isActive: true,
+            },
+            $setOnInsert: {
+              _id: randomUUID(),
+              createdAt: new Date().toISOString(),
+            },
+          },
+          { upsert: true }
+        );
+
+        console.log("✅ Admin user synced (password set from env)");
       }
 
 
