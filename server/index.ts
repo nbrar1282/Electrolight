@@ -3,7 +3,7 @@ import "dotenv/config";
 
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+import { serveStatic, log } from "./vite"; // keep only what you need in prod
 import { connectToDatabase } from "./db";
 
 console.log("VERCEL:", !!process.env.VERCEL);
@@ -60,10 +60,11 @@ async function bootstrap() {
 
   const isVercel = !!process.env.VERCEL;
 
+  // later inside bootstrap():
   if (app.get("env") === "development") {
+    const { setupVite } = await import("./vite");
     await setupVite(app, server);
-  } else if (!isVercel) {
-    // Only serve static files when running as a normal Node server (not Vercel serverless)
+  } else if (!process.env.VERCEL) {
     serveStatic(app);
   }
   
