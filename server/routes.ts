@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { MongoStorage } from "./mongoStorage";
 import { insertProductSchema, insertContactMessageSchema, insertAccessorySchema, adminLoginSchema, insertProjectSchema, insertBrandSchema, insertCategorySchema } from "@shared/schema";
-import { uploadToCloudinary, uploadMediaToCloudinary } from "./cloudinary";
+import { uploadToCloudinary, uploadMediaToCloudinary, deleteManyFromCloudinaryByUrls } from "./cloudinary";
 import session from "express-session";
 import multer from "multer";
 import MemoryStore from "memorystore";
@@ -362,15 +362,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/products/:id", requireAdminAuth, async (req, res) => {
     try {
+      const existing = await storage.getProduct(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Product not found" });
+
+      // Collect all possible media URLs
+      const urlsToDelete = [
+        existing.imageUrl,
+        ...(existing.imageUrls || []),
+        // If you ever add product videos later, add them here too
+      ];
+
+      await deleteManyFromCloudinaryByUrls(urlsToDelete);
+
       const deleted = await storage.deleteProduct(req.params.id);
-      if (!deleted) {
-        return res.status(404).json({ message: "Product not found" });
-      }
+      if (!deleted) return res.status(404).json({ message: "Product not found" });
+
       res.json({ message: "Product deleted successfully" });
     } catch (error) {
+      console.error("Delete product error:", error);
       res.status(500).json({ message: "Failed to delete product" });
     }
   });
+
 
   // Accessories routes
   app.get("/api/accessories", async (req, res) => {
@@ -443,15 +456,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/accessories/:id", requireAdminAuth, async (req, res) => {
     try {
+      const existing = await storage.getAccessory(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Accessory not found" });
+
+      await deleteManyFromCloudinaryByUrls([
+        existing.imageUrl,
+        ...(existing.imageUrls || []), // if you ever add this field
+      ]);
+
       const deleted = await storage.deleteAccessory(req.params.id);
-      if (!deleted) {
-        return res.status(404).json({ message: "Accessory not found" });
-      }
+      if (!deleted) return res.status(404).json({ message: "Accessory not found" });
+
       res.json({ message: "Accessory deleted successfully" });
     } catch (error) {
+      console.error("Delete accessory error:", error);
       res.status(500).json({ message: "Failed to delete accessory" });
     }
   });
+
 
   // AI-powered similar products endpoint
   app.get("/api/products/:id/similar", async (req, res) => {
@@ -612,16 +634,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/admin/projects/:id", requireAdminAuth, async (req, res) => {
     try {
+      const existing = await storage.getProject(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Project not found" });
+
+      await deleteManyFromCloudinaryByUrls([
+        (existing as any).primaryMediaUrl,
+        ...(((existing as any).imageUrls || []) as string[]),
+        ...(((existing as any).mediaUrls || []) as string[]),
+      ]);
+
       const success = await storage.deleteProject(req.params.id);
-      if (!success) {
-        return res.status(404).json({ message: "Project not found" });
-      }
+      if (!success) return res.status(404).json({ message: "Project not found" });
+
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting project:", error);
       res.status(500).json({ message: "Failed to delete project" });
     }
   });
+
 
   // Data management endpoints for admin
   app.post("/api/admin/clear-all-data", requireAdminAuth, async (req, res) => {
@@ -749,16 +780,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/categories/:id", requireAdminAuth, async (req, res) => {
     try {
+      const all = await storage.getCategories();
+      const existing = all.find((c) => c.id === req.params.id);
+      if (!existing) return res.status(404).json({ message: "Category not found" });
+
+      await deleteManyFromCloudinaryByUrls([ (existing as any).imageUrl ]);
+
       const success = await storage.deleteCategory(req.params.id);
-      if (!success) {
-        return res.status(404).json({ message: "Category not found" });
-      }
+      if (!success) return res.status(404).json({ message: "Category not found" });
+
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting category:", error);
       res.status(500).json({ message: "Failed to delete category" });
     }
   });
+
 
   // Hero Images routes
   app.get("/api/hero-images", async (req, res) => {
@@ -811,17 +848,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/hero-images/:id", requireAdminAuth, async (req, res) => {
     try {
+      const existing = await storage.getHeroImage(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Hero image not found" });
+
+      await deleteManyFromCloudinaryByUrls([
+        (existing as any).imageUrl,
+        (existing as any).mediaUrl,
+      ]);
+
       const result = await storage.deleteHeroImage(req.params.id);
-      if (result) {
-        res.json({ message: "Hero image deleted successfully" });
-      } else {
-        res.status(404).json({ error: "Hero image not found" });
-      }
+      if (!result) return res.status(404).json({ error: "Hero image not found" });
+
+      res.json({ message: "Hero image deleted successfully" });
     } catch (error) {
       console.error("Error deleting hero image:", error);
       res.status(500).json({ error: "Failed to delete hero image" });
     }
   });
+
 
   const httpServer = createServer(app);
   return httpServer;

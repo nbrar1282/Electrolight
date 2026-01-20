@@ -14,12 +14,28 @@ import { Link, useLocation } from "wouter";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Product, Category, ContactMessage, Accessory, Project, Brand, HeroImage, InsertProduct, InsertAccessory, InsertProject, InsertCategory, InsertBrand, InsertHeroImage } from "@shared/schema";
 import type { SiteSettings, InsertSiteSettings } from "@shared/schema";
-import { Settings } from "lucide-react"; // Import Settings icon
+import { Settings } from "lucide-react";
 
+// Helper function to create blob URLs for preview
+const createBlobUrl = (file: File): string => {
+  return URL.createObjectURL(file);
+};
+
+// Helper function to revoke blob URLs to prevent memory leaks
+const revokeBlobUrl = (url: string) => {
+  if (url.startsWith('blob:')) {
+    URL.revokeObjectURL(url);
+  }
+};
+
+// Types for tracking files and previews
+interface FileWithPreview {
+  file: File;
+  previewUrl: string;
+  isVideo?: boolean;
+}
 
 export default function Admin() {
-  
-
   const [isEditing, setIsEditing] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditingAccessory, setIsEditingAccessory] = useState(false);
@@ -40,6 +56,16 @@ export default function Admin() {
   const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
   const [activeTab, setActiveTab] = useState<'products' | 'accessories' | 'contacts' | 'projects' | 'brands' | 'categories' | 'data-management' | 'hero-images' | 'settings'>('products');
   
+  // Track files for upload (only upload on submit)
+  const [productPrimaryImage, setProductPrimaryImage] = useState<FileWithPreview | null>(null);
+  const [productAdditionalImages, setProductAdditionalImages] = useState<FileWithPreview[]>([]);
+  const [accessoryPrimaryImage, setAccessoryPrimaryImage] = useState<FileWithPreview | null>(null);
+  const [accessoryAdditionalImages, setAccessoryAdditionalImages] = useState<FileWithPreview[]>([]);
+  const [projectPrimaryMedia, setProjectPrimaryMedia] = useState<FileWithPreview | null>(null);
+  const [projectAdditionalMedia, setProjectAdditionalMedia] = useState<FileWithPreview[]>([]);
+  const [categoryImage, setCategoryImage] = useState<FileWithPreview | null>(null);
+  const [heroImagesToUpload, setHeroImagesToUpload] = useState<FileWithPreview[]>([]);
+
   const [formData, setFormData] = useState<Partial<InsertProduct>>({
     name: "",
     description: "",
@@ -51,6 +77,7 @@ export default function Admin() {
     inStock: true,
     featured: false,
   });
+  
   const [accessoryFormData, setAccessoryFormData] = useState<Partial<InsertAccessory>>({
     name: "",
     modelNumber: "",
@@ -60,6 +87,7 @@ export default function Admin() {
     brand: "",
     compatibleWith: [],
   });
+  
   const [projectFormData, setProjectFormData] = useState<Partial<InsertProject>>({
     title: "",
     description: "",
@@ -68,7 +96,7 @@ export default function Admin() {
     completedDate: "",
     primaryMediaUrl: "",
     additionalMediaUrls: [],
-    imageUrls: [], // Legacy field for backward compatibility
+    imageUrls: [],
     productsUsed: [],
     featured: false,
   });
@@ -86,80 +114,166 @@ export default function Admin() {
   // Category management state
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  
-  // UPDATED: Added featured field to initial state
   const [categoryFormData, setCategoryFormData] = useState<Partial<InsertCategory>>({
     name: "",
     slug: "",
     imageUrl: "",
-    featured: false, 
+    featured: false,
   });
 
-  // Loading state for category image upload
-  const [uploadingCategoryImage, setUploadingCategoryImage] = useState(false);
-
-  // Loading states for accessory uploads
-  const [uploadingAccessoryImage, setUploadingAccessoryImage] = useState(false);
-  const [uploadingAccessoryAdditionalImages, setUploadingAccessoryAdditionalImages] = useState(false);
+  // Settings form state
+  const [settingsForm, setSettingsForm] = useState<Partial<InsertSiteSettings>>({});
 
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { isAuthenticated, admin, isLoading } = useAdminAuth();
 
+  // Data queries
   const { data: siteSettings } = useQuery<SiteSettings>({
     queryKey: ['/api/site-settings'],
     enabled: isAuthenticated,
   });
-  // Always call all hooks first, regardless of auth state
+
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ['/api/products'],
-    enabled: isAuthenticated, // Only fetch when authenticated
+    enabled: isAuthenticated,
   });
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ['/api/categories'],
-    enabled: isAuthenticated, // Only fetch when authenticated
+    enabled: isAuthenticated,
   });
 
   const { data: contactMessages = [] } = useQuery<ContactMessage[]>({
     queryKey: ['/api/contact-messages'],
-    enabled: isAuthenticated, // Only fetch when authenticated
+    enabled: isAuthenticated,
   });
 
   const { data: accessories = [] } = useQuery<Accessory[]>({
     queryKey: ['/api/accessories'],
-    enabled: isAuthenticated, // Only fetch when authenticated
+    enabled: isAuthenticated,
   });
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ['/api/projects'],
-    enabled: isAuthenticated, // Only fetch when authenticated
+    enabled: isAuthenticated,
   });
 
   const { data: brands = [] } = useQuery<Brand[]>({
     queryKey: ['/api/brands'],
-    enabled: isAuthenticated, // Only fetch when authenticated
+    enabled: isAuthenticated,
   });
 
   const { data: heroImages = [] } = useQuery<HeroImage[]>({
     queryKey: ['/api/hero-images'],
-    enabled: isAuthenticated, // Only fetch when authenticated
+    enabled: isAuthenticated,
   });
 
-  // All mutation hooks must be defined before any early returns
-  const updateSettingsMutation = useMutation({
-    mutationFn: async (data: InsertSiteSettings) => {
-      const response = await apiRequest('POST', '/api/site-settings', data);
+  // Effect to clean up blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      // Clean up all blob URLs
+      const allFiles = [
+        productPrimaryImage,
+        ...productAdditionalImages,
+        accessoryPrimaryImage,
+        ...accessoryAdditionalImages,
+        projectPrimaryMedia,
+        ...projectAdditionalMedia,
+        categoryImage,
+        ...heroImagesToUpload
+      ].filter(Boolean) as FileWithPreview[];
+      
+      allFiles.forEach(item => {
+        revokeBlobUrl(item.previewUrl);
+      });
+    };
+  }, []);
+
+  // Update settings form when siteSettings loads
+  useEffect(() => {
+    if (siteSettings) {
+      setSettingsForm(siteSettings);
+    }
+  }, [siteSettings]);
+
+  // Authentication effects
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      setLocation("/admin/login");
+    }
+  }, [isAuthenticated, isLoading, setLocation]);
+
+  // Image upload mutation (used only on submit)
+  const imageUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        throw new Error('File is too large. Maximum size is 10MB.');
+      }
+      
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to upload image');
+      }
+      
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/site-settings'] });
-      toast({ title: "Settings updated successfully" });
-    },
-    onError: () => {
-      toast({ title: "Failed to update settings", variant: "destructive" });
+    onError: (error: any) => {
+      console.error('Image upload error:', error);
+      const errorMessage = error.message || "Failed to upload image";
+      toast({ 
+        title: "Upload Failed", 
+        description: errorMessage,
+        variant: "destructive" 
+      });
     },
   });
+
+  // Media upload mutation (for projects)
+  const mediaUploadMutation = useMutation({
+    mutationFn: async ({ file, type }: { file: File; type: 'primary' | 'additional' }) => {
+      const isVideo = file.type.startsWith('video/');
+      const maxSize = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+      
+      if (file.size > maxSize) {
+        throw new Error(isVideo ? 'Video must be under 100MB' : 'Image must be under 10MB');
+      }
+      
+      const formData = new FormData();
+      formData.append('media', file);
+      
+      const endpoint = type === 'primary' ? '/api/upload/primary-media' : '/api/upload/additional-media';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to upload media');
+      }
+      
+      return response.json();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Upload Failed", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  // Product mutations
   const createProductMutation = useMutation({
     mutationFn: async (data: InsertProduct) => {
       const response = await apiRequest('POST', '/api/products', data);
@@ -171,7 +285,6 @@ export default function Admin() {
       resetForm();
     },
     onError: (error: any) => {
-      console.error('Product creation error:', error);
       const errorMessage = error?.message || "Failed to create product";
       toast({ 
         title: "Failed to create product", 
@@ -192,13 +305,10 @@ export default function Admin() {
       resetForm();
     },
     onError: (error: any) => {
-      console.error('Product update error:', error);
       const errorMessage = error.message || "Failed to update product";
       toast({ 
         title: "Update Failed", 
-        description: errorMessage.includes('undefined') 
-          ? "Product ID is missing. Please refresh and try again." 
-          : errorMessage,
+        description: errorMessage,
         variant: "destructive" 
       });
     },
@@ -217,6 +327,7 @@ export default function Admin() {
     },
   });
 
+  // Accessory mutations
   const createAccessoryMutation = useMutation({
     mutationFn: async (data: InsertAccessory) => {
       const response = await apiRequest('POST', '/api/accessories', data);
@@ -471,37 +582,17 @@ export default function Admin() {
     },
   });
 
-  const imageUploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      // Check file size before uploading
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      if (file.size > maxSize) {
-        throw new Error('File is too large. Maximum size is 10MB.');
-      }
-      
-      const formData = new FormData();
-      formData.append('image', file);
-      
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to upload image');
-      }
-      
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (data: InsertSiteSettings) => {
+      const response = await apiRequest('POST', '/api/site-settings', data);
       return response.json();
     },
-    onError: (error: any) => {
-      console.error('Image upload error:', error);
-      const errorMessage = error.message || "Failed to upload image";
-      toast({ 
-        title: "Upload Failed", 
-        description: errorMessage,
-        variant: "destructive" 
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/site-settings'] });
+      toast({ title: "Settings updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update settings", variant: "destructive" });
     },
   });
 
@@ -540,188 +631,485 @@ export default function Admin() {
       });
     },
   });
-  const [settingsForm, setSettingsForm] = useState<Partial<InsertSiteSettings>>({});
-  useEffect(() => {
-    if (siteSettings) {
-      setSettingsForm(siteSettings);
-    }
-  }, [siteSettings]);
 
-  // Authentication effects and early returns - after all hooks
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      setLocation("/admin/login");
-    }
-  }, [isAuthenticated, isLoading, setLocation]);
-
-  // Show loading while checking authentication
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-gray-600">Checking authentication...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Redirect to login if not authenticated
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const data = {
-      ...formData,
-      specificationList: formData.specificationList || [],
-    } as InsertProduct;
-
-    if (isEditing && editingProduct) {
-      console.log('Updating product with ID:', editingProduct.id);
-      if (!editingProduct.id) {
-        toast({ 
-          title: "Update Error", 
-          description: "Product ID is missing. Please refresh the page and try again.",
-          variant: "destructive" 
-        });
-        return;
-      }
-      updateProductMutation.mutate({ id: editingProduct.id, data });
-    } else {
-      createProductMutation.mutate(data);
-    }
-  };
-
-  const handleAccessorySubmit = (e: React.FormEvent) => {
+  // Handle product form submit with image upload
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isEditingAccessory && editingAccessory) {
-      updateAccessoryMutation.mutate({ 
-        id: editingAccessory.id, 
-        data: accessoryFormData
+    try {
+      let imageUrl = formData.imageUrl;
+      let imageUrls = [...(formData.imageUrls || [])];
+      
+      // Upload primary image if new file selected
+      if (productPrimaryImage) {
+        toast({ title: "Uploading primary image..." });
+        const result = await imageUploadMutation.mutateAsync(productPrimaryImage.file);
+        imageUrl = result.imageUrl;
+        revokeBlobUrl(productPrimaryImage.previewUrl);
+        toast({ title: "Primary image uploaded" });
+      }
+      
+      // Upload additional images if any
+      if (productAdditionalImages.length > 0) {
+        toast({ title: `Uploading ${productAdditionalImages.length} additional images...` });
+        const uploadPromises = productAdditionalImages.map(async (item) => {
+          const result = await imageUploadMutation.mutateAsync(item.file);
+          revokeBlobUrl(item.previewUrl);
+          return result.imageUrl;
+        });
+        
+        const newUrls = await Promise.all(uploadPromises);
+        imageUrls = [...imageUrls, ...newUrls];
+        toast({ title: "Additional images uploaded" });
+      }
+      
+      const data = {
+        ...formData,
+        imageUrl,
+        imageUrls,
+        specificationList: formData.specificationList || [],
+      } as InsertProduct;
+
+      if (isEditing && editingProduct) {
+        if (!editingProduct.id) {
+          toast({ 
+            title: "Update Error", 
+            description: "Product ID is missing",
+            variant: "destructive" 
+          });
+          return;
+        }
+        await updateProductMutation.mutateAsync({ id: editingProduct.id, data });
+      } else {
+        await createProductMutation.mutateAsync(data);
+      }
+      
+      // Clear file states after successful submission
+      setProductPrimaryImage(null);
+      setProductAdditionalImages([]);
+      
+    } catch (error) {
+      console.error('Submit error:', error);
+      toast({
+        title: "Submit failed",
+        description: "Failed to upload images or save product",
+        variant: "destructive"
       });
-    } else {
-      createAccessoryMutation.mutate(accessoryFormData as InsertAccessory);
     }
   };
 
+  // Handle accessory form submit
+  const handleAccessorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      let imageUrl = accessoryFormData.imageUrl;
+      let imageUrls = [...(accessoryFormData.imageUrls || [])];
+      
+      // Upload primary image if new file selected
+      if (accessoryPrimaryImage) {
+        toast({ title: "Uploading accessory image..." });
+        const result = await imageUploadMutation.mutateAsync(accessoryPrimaryImage.file);
+        imageUrl = result.imageUrl;
+        revokeBlobUrl(accessoryPrimaryImage.previewUrl);
+      }
+      
+      // Upload additional images if any
+      if (accessoryAdditionalImages.length > 0) {
+        toast({ title: `Uploading ${accessoryAdditionalImages.length} additional images...` });
+        const uploadPromises = accessoryAdditionalImages.map(async (item) => {
+          const result = await imageUploadMutation.mutateAsync(item.file);
+          revokeBlobUrl(item.previewUrl);
+          return result.imageUrl;
+        });
+        
+        const newUrls = await Promise.all(uploadPromises);
+        imageUrls = [...imageUrls, ...newUrls];
+      }
+      
+      const data = {
+        ...accessoryFormData,
+        imageUrl,
+        imageUrls,
+      } as InsertAccessory;
+
+      if (isEditingAccessory && editingAccessory) {
+        await updateAccessoryMutation.mutateAsync({ 
+          id: editingAccessory.id, 
+          data 
+        });
+      } else {
+        await createAccessoryMutation.mutateAsync(data);
+      }
+      
+      // Clear file states
+      setAccessoryPrimaryImage(null);
+      setAccessoryAdditionalImages([]);
+      
+    } catch (error) {
+      console.error('Accessory submit error:', error);
+      toast({
+        title: "Submit failed",
+        description: "Failed to upload images or save accessory",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle project form submit
   const handleProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isEditingProject && editingProject) {
-      updateProjectMutation.mutate({ 
-        id: editingProject.id, 
-        data: projectFormData
+    try {
+      let primaryMediaUrl = projectFormData.primaryMediaUrl;
+      let additionalMediaUrls = [...(projectFormData.additionalMediaUrls || [])];
+      
+      // Upload primary media if new file selected
+      if (projectPrimaryMedia) {
+        toast({ title: "Uploading primary media..." });
+        const result = await mediaUploadMutation.mutateAsync({
+          file: projectPrimaryMedia.file,
+          type: 'primary'
+        });
+        primaryMediaUrl = result.mediaUrl;
+        revokeBlobUrl(projectPrimaryMedia.previewUrl);
+      }
+      
+      // Upload additional media if any
+      if (projectAdditionalMedia.length > 0) {
+        toast({ title: `Uploading ${projectAdditionalMedia.length} additional media files...` });
+        const uploadPromises = projectAdditionalMedia.map(async (item) => {
+          const result = await mediaUploadMutation.mutateAsync({
+            file: item.file,
+            type: 'additional'
+          });
+          revokeBlobUrl(item.previewUrl);
+          return result.mediaUrl;
+        });
+        
+        const newUrls = await Promise.all(uploadPromises);
+        additionalMediaUrls = [...additionalMediaUrls, ...newUrls];
+      }
+      
+      const data = {
+        ...projectFormData,
+        primaryMediaUrl,
+        additionalMediaUrls,
+      } as InsertProject;
+
+      if (isEditingProject && editingProject) {
+        await updateProjectMutation.mutateAsync({ 
+          id: editingProject.id, 
+          data 
+        });
+      } else {
+        await createProjectMutation.mutateAsync(data);
+      }
+      
+      // Clear file states
+      setProjectPrimaryMedia(null);
+      setProjectAdditionalMedia([]);
+      
+    } catch (error) {
+      console.error('Project submit error:', error);
+      toast({
+        title: "Submit failed",
+        description: "Failed to upload media or save project",
+        variant: "destructive"
       });
+    }
+  };
+
+  // Handle brand form submit
+  const handleBrandSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isEditingBrand && editingBrand) {
+      updateBrandMutation.mutate({ id: editingBrand.id, data: brandFormData as InsertBrand });
     } else {
-      createProjectMutation.mutate(projectFormData as InsertProject);
+      createBrandMutation.mutate(brandFormData as InsertBrand);
     }
   };
 
-  const handleEditProject = (project: Project) => {
-    console.log('Edit project clicked:', project.title, project);
-    setEditingProject(project);
-    setProjectFormData({
-      title: project.title,
-      description: project.description,
-      location: project.location,
-      category: project.category,
-      completedDate: project.completedDate,
-      primaryMediaUrl: project.primaryMediaUrl || "",
-      additionalMediaUrls: project.additionalMediaUrls || [],
-      imageUrls: project.imageUrls || [], // Legacy field for backward compatibility
-      productsUsed: project.productsUsed || [],
-      featured: project.featured,
-    });
-    setIsEditingProject(true);
-    setActiveTab('projects'); // Force switch to projects tab
-    console.log('Project edit state set and switched to projects tab');
-  };
+  // Handle category form submit
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      let imageUrl = categoryFormData.imageUrl;
+      
+      // Upload category image if new file selected
+      if (categoryImage) {
+        toast({ title: "Uploading category image..." });
+        const result = await imageUploadMutation.mutateAsync(categoryImage.file);
+        imageUrl = result.imageUrl;
+        revokeBlobUrl(categoryImage.previewUrl);
+      }
+      
+      const data = {
+        ...categoryFormData,
+        imageUrl,
+      } as InsertCategory;
 
-  const handleDeleteProject = (id: string) => {
-    if (confirm("Are you sure you want to delete this project?")) {
-      deleteProjectMutation.mutate(id);
+      if (isEditingCategory && editingCategory) {
+        await updateCategoryMutation.mutateAsync({ id: editingCategory.id, data });
+      } else {
+        await createCategoryMutation.mutateAsync(data);
+      }
+      
+      // Clear file state
+      setCategoryImage(null);
+      
+    } catch (error) {
+      console.error('Category submit error:', error);
+      toast({
+        title: "Submit failed",
+        description: "Failed to upload image or save category",
+        variant: "destructive"
+      });
     }
   };
 
-  const handleEditAccessory = (accessory: Accessory) => {
-    console.log('Edit accessory clicked:', accessory.name, accessory);
-    console.log('Setting isEditingAccessory to true');
-    setEditingAccessory(accessory);
-    setAccessoryFormData({
-      name: accessory.name,
-      modelNumber: accessory.modelNumber || '',
-      description: accessory.description,
-      brand: accessory.brand || '',
-      imageUrl: accessory.imageUrl,
-      imageUrls: accessory.imageUrls || [],
-      compatibleWith: accessory.compatibleWith || []
-    });
-    setIsEditingAccessory(true);
-    setActiveTab('accessories'); // Force switch to accessories tab
-    console.log('Accessory edit state set and switched to accessories tab');
-  };
-
-  const handleDeleteAccessory = (id: string) => {
-    if (confirm("Are you sure you want to delete this accessory?")) {
-      deleteAccessoryMutation.mutate(id);
-    }
-  };
-
-  const handleEdit = (product: Product) => {
-    console.log('Edit product clicked:', product.name, product);
-    console.log('Setting isEditing to true');
-    setEditingProduct(product);
-    setFormData({
-      name: product.name,
-      description: product.description,
-      categorySlug: product.categorySlug,
-      brand: product.brand,
-      imageUrl: product.imageUrl,
-      imageUrls: product.imageUrls || [],
-      specificationList: Array.isArray(product.specificationList) ? product.specificationList : [],
-      accessories: product.accessories || [],
-      inStock: product.inStock,
-      featured: product.featured,
-    });
-    setIsEditing(true);
-    setActiveTab('products'); // Force switch to products tab  
-    console.log('Product edit state set and switched to products tab');
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this product?")) {
-      deleteProductMutation.mutate(id);
-    }
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isPrimary = true) => {
+  // File handlers (store locally for preview, upload on submit)
+  const handleProductPrimaryImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Show upload progress feedback
-      toast({ 
-        title: "Uploading image...", 
-        description: `Uploading ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)}MB)` 
-      });
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image under 10MB",
+          variant: "destructive"
+        });
+        return;
+      }
       
-      imageUploadMutation.mutate(file, {
-        onSuccess: (data) => {
-          if (isPrimary) {
-            setFormData(prev => ({ ...prev, imageUrl: data.imageUrl }));
-          } else {
-            setFormData(prev => ({ 
-              ...prev, 
-              imageUrls: [...(prev.imageUrls || []), data.imageUrl]
-            }));
-          }
-          toast({ title: "Image uploaded successfully" });
-        }
+      const previewUrl = createBlobUrl(file);
+      setProductPrimaryImage({ file, previewUrl });
+      
+      // Clear existing image URL since we're uploading a new file
+      setFormData(prev => ({ ...prev, imageUrl: "" }));
+      
+      toast({ 
+        title: "Image selected", 
+        description: `${file.name} (${(file.size / (1024 * 1024)).toFixed(2)}MB) - will upload on submit`
       });
     }
+    e.target.value = '';
   };
 
+  const handleProductAdditionalImagesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter(file => {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: `${file.name} is over 10MB`,
+          variant: "destructive"
+        });
+        return false;
+      }
+      return true;
+    });
+    
+    const newFiles: FileWithPreview[] = validFiles.map(file => ({
+      file,
+      previewUrl: createBlobUrl(file),
+    }));
+    
+    setProductAdditionalImages(prev => [...prev, ...newFiles]);
+    
+    if (newFiles.length > 0) {
+      toast({ 
+        title: "Images selected", 
+        description: `${newFiles.length} image(s) selected - will upload on submit`
+      });
+    }
+    
+    e.target.value = '';
+  };
+
+  const removeProductAdditionalImage = (indexToRemove: number) => {
+    const item = productAdditionalImages[indexToRemove];
+    if (item) {
+      revokeBlobUrl(item.previewUrl);
+    }
+    setProductAdditionalImages(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleAccessoryPrimaryImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image under 10MB",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const previewUrl = createBlobUrl(file);
+      setAccessoryPrimaryImage({ file, previewUrl });
+      setAccessoryFormData(prev => ({ ...prev, imageUrl: "" }));
+      
+      toast({ 
+        title: "Image selected", 
+        description: `${file.name} - will upload on submit`
+      });
+    }
+    e.target.value = '';
+  };
+
+  const handleAccessoryAdditionalImagesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter(file => {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: `${file.name} is over 10MB`,
+          variant: "destructive"
+        });
+        return false;
+      }
+      return true;
+    });
+    
+    const newFiles: FileWithPreview[] = validFiles.map(file => ({
+      file,
+      previewUrl: createBlobUrl(file),
+    }));
+    
+    setAccessoryAdditionalImages(prev => [...prev, ...newFiles]);
+    
+    if (newFiles.length > 0) {
+      toast({ 
+        title: "Images selected", 
+        description: `${newFiles.length} image(s) selected - will upload on submit`
+      });
+    }
+    
+    e.target.value = '';
+  };
+
+  const handleProjectPrimaryMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const isVideo = file.type.startsWith('video/');
+      const maxSize = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+      
+      if (file.size > maxSize) {
+        const limitText = isVideo ? '100MB' : '10MB';
+        toast({
+          title: "File too large",
+          description: `Please select a file under ${limitText}`,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const previewUrl = createBlobUrl(file);
+      setProjectPrimaryMedia({ file, previewUrl, isVideo });
+      setProjectFormData(prev => ({ ...prev, primaryMediaUrl: "" }));
+      
+      toast({ 
+        title: "Media selected", 
+        description: `${file.name} (${(file.size / (1024 * 1024)).toFixed(2)}MB) - will upload on submit`
+      });
+    }
+    e.target.value = '';
+  };
+
+  const handleProjectAdditionalMediaSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter(file => {
+      const isVideo = file.type.startsWith('video/');
+      const maxSize = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+      
+      if (file.size > maxSize) {
+        const limitText = isVideo ? '100MB' : '10MB';
+        toast({
+          title: "File too large",
+          description: `${file.name} exceeds ${limitText} limit`,
+          variant: "destructive"
+        });
+        return false;
+      }
+      return true;
+    });
+    
+    const newFiles: FileWithPreview[] = validFiles.map(file => ({
+      file,
+      previewUrl: createBlobUrl(file),
+      isVideo: file.type.startsWith('video/'),
+    }));
+    
+    setProjectAdditionalMedia(prev => [...prev, ...newFiles]);
+    
+    if (newFiles.length > 0) {
+      toast({ 
+        title: "Media files selected", 
+        description: `${newFiles.length} file(s) selected - will upload on submit`
+      });
+    }
+    
+    e.target.value = '';
+  };
+
+  const handleCategoryImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image under 10MB",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const previewUrl = createBlobUrl(file);
+      setCategoryImage({ file, previewUrl });
+      setCategoryFormData(prev => ({ ...prev, imageUrl: "" }));
+      
+      toast({ 
+        title: "Image selected", 
+        description: `${file.name} - will upload on submit`
+      });
+    }
+    e.target.value = '';
+  };
+
+  const handleHeroImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter(file => {
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: `${file.name} is over 10MB`,
+          variant: "destructive"
+        });
+        return false;
+      }
+      return true;
+    });
+    
+    const newFiles: FileWithPreview[] = validFiles.map(file => ({
+      file,
+      previewUrl: createBlobUrl(file),
+    }));
+    
+    setHeroImagesToUpload(prev => [...prev, ...newFiles]);
+    
+    if (newFiles.length > 0) {
+      toast({ 
+        title: "Hero images selected", 
+        description: `${newFiles.length} image(s) selected`
+      });
+    }
+    
+    e.target.value = '';
+  };
+
+  // Remove functions
   const removeAdditionalImage = (indexToRemove: number) => {
     setFormData(prev => ({
       ...prev,
@@ -729,6 +1117,33 @@ export default function Admin() {
     }));
   };
 
+  const removePrimaryMedia = () => {
+    if (projectPrimaryMedia) {
+      revokeBlobUrl(projectPrimaryMedia.previewUrl);
+      setProjectPrimaryMedia(null);
+    } else {
+      setProjectFormData(prev => ({
+        ...prev,
+        primaryMediaUrl: ""
+      }));
+    }
+  };
+
+  const removeAdditionalMedia = (index: number) => {
+    setProjectFormData(prev => ({
+      ...prev,
+      additionalMediaUrls: prev.additionalMediaUrls?.filter((_, i) => i !== index) || []
+    }));
+  };
+
+  const removeProjectMedia = (index: number) => {
+    setProjectFormData(prev => ({
+      ...prev,
+      imageUrls: prev.imageUrls?.filter((_, i) => i !== index) || []
+    }));
+  };
+
+  // Reset functions
   const resetForm = () => {
     setFormData({
       name: "",
@@ -741,6 +1156,13 @@ export default function Admin() {
       inStock: true,
       featured: false,
     });
+    // Clean up blob URLs
+    if (productPrimaryImage) {
+      revokeBlobUrl(productPrimaryImage.previewUrl);
+    }
+    productAdditionalImages.forEach(item => revokeBlobUrl(item.previewUrl));
+    setProductPrimaryImage(null);
+    setProductAdditionalImages([]);
     setIsEditing(false);
     setEditingProduct(null);
   };
@@ -755,6 +1177,13 @@ export default function Admin() {
       brand: "",
       compatibleWith: [],
     });
+    // Clean up blob URLs
+    if (accessoryPrimaryImage) {
+      revokeBlobUrl(accessoryPrimaryImage.previewUrl);
+    }
+    accessoryAdditionalImages.forEach(item => revokeBlobUrl(item.previewUrl));
+    setAccessoryPrimaryImage(null);
+    setAccessoryAdditionalImages([]);
     setIsEditingAccessory(false);
     setEditingAccessory(null);
   };
@@ -768,34 +1197,19 @@ export default function Admin() {
       completedDate: "",
       primaryMediaUrl: "",
       additionalMediaUrls: [],
-      imageUrls: [], // Legacy field for backward compatibility
+      imageUrls: [],
       productsUsed: [],
       featured: false,
     });
+    // Clean up blob URLs
+    if (projectPrimaryMedia) {
+      revokeBlobUrl(projectPrimaryMedia.previewUrl);
+    }
+    projectAdditionalMedia.forEach(item => revokeBlobUrl(item.previewUrl));
+    setProjectPrimaryMedia(null);
+    setProjectAdditionalMedia([]);
     setIsEditingProject(false);
     setEditingProject(null);
-  };
-
-  // Brand management functions
-  const handleEditBrand = (brand: Brand) => {
-    setEditingBrand(brand);
-    setBrandFormData({
-      name: brand.name,
-      description: brand.description || "",
-      website: brand.website || "",
-      isActive: brand.isActive,
-    });
-    setIsEditingBrand(true);
-    setActiveTab('brands');
-  };
-
-  const handleBrandSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isEditingBrand && editingBrand) {
-      updateBrandMutation.mutate({ id: editingBrand.id, data: brandFormData as InsertBrand });
-    } else {
-      createBrandMutation.mutate(brandFormData as InsertBrand);
-    }
   };
 
   const resetBrandForm = () => {
@@ -809,39 +1223,115 @@ export default function Admin() {
     setEditingBrand(null);
   };
 
-  // Category management functions
+  const resetCategoryForm = () => {
+    setCategoryFormData({
+      name: "",
+      slug: "",
+      imageUrl: "",
+      featured: false,
+    });
+    // Clean up blob URL
+    if (categoryImage) {
+      revokeBlobUrl(categoryImage.previewUrl);
+    }
+    setCategoryImage(null);
+    setIsEditingCategory(false);
+    setEditingCategory(null);
+  };
+
+  // Edit handlers
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      description: product.description,
+      categorySlug: product.categorySlug,
+      brand: product.brand,
+      imageUrl: product.imageUrl,
+      imageUrls: product.imageUrls || [],
+      specificationList: Array.isArray(product.specificationList) ? product.specificationList : [],
+      accessories: product.accessories || [],
+      inStock: product.inStock,
+      featured: product.featured,
+    });
+    setIsEditing(true);
+    setActiveTab('products');
+  };
+
+  const handleEditAccessory = (accessory: Accessory) => {
+    setEditingAccessory(accessory);
+    setAccessoryFormData({
+      name: accessory.name,
+      modelNumber: accessory.modelNumber || '',
+      description: accessory.description,
+      brand: accessory.brand || '',
+      imageUrl: accessory.imageUrl,
+      imageUrls: accessory.imageUrls || [],
+      compatibleWith: accessory.compatibleWith || []
+    });
+    setIsEditingAccessory(true);
+    setActiveTab('accessories');
+  };
+
+  const handleEditProject = (project: Project) => {
+    setEditingProject(project);
+    setProjectFormData({
+      title: project.title,
+      description: project.description,
+      location: project.location,
+      category: project.category,
+      completedDate: project.completedDate,
+      primaryMediaUrl: project.primaryMediaUrl || "",
+      additionalMediaUrls: project.additionalMediaUrls || [],
+      imageUrls: project.imageUrls || [],
+      productsUsed: project.productsUsed || [],
+      featured: project.featured,
+    });
+    setIsEditingProject(true);
+    setActiveTab('projects');
+  };
+
+  const handleEditBrand = (brand: Brand) => {
+    setEditingBrand(brand);
+    setBrandFormData({
+      name: brand.name,
+      description: brand.description || "",
+      website: brand.website || "",
+      isActive: brand.isActive,
+    });
+    setIsEditingBrand(true);
+    setActiveTab('brands');
+  };
+
   const handleEditCategory = (category: Category) => {
     setEditingCategory(category);
     setCategoryFormData({
       name: category.name,
       slug: category.slug,
       imageUrl: category.imageUrl,
-      // UPDATED: Handle featured state
       featured: category.featured || false,
     });
     setIsEditingCategory(true);
     setActiveTab('categories');
   };
 
-  const handleCategorySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isEditingCategory && editingCategory) {
-      updateCategoryMutation.mutate({ id: editingCategory.id, data: categoryFormData as InsertCategory });
-    } else {
-      createCategoryMutation.mutate(categoryFormData as InsertCategory);
+  // Delete handlers
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to delete this product?")) {
+      deleteProductMutation.mutate(id);
     }
   };
 
-  const resetCategoryForm = () => {
-    setCategoryFormData({
-      name: "",
-      slug: "",
-      imageUrl: "",
-      // UPDATED: Reset featured state
-      featured: false,
-    });
-    setIsEditingCategory(false);
-    setEditingCategory(null);
+  const handleDeleteAccessory = (id: string) => {
+    if (confirm("Are you sure you want to delete this accessory?")) {
+      deleteAccessoryMutation.mutate(id);
+    }
+  };
+
+  const handleDeleteProject = (id: string) => {
+    if (confirm("Are you sure you want to delete this project?")) {
+      deleteProjectMutation.mutate(id);
+    }
   };
 
   // Auto-generate slug from name
@@ -853,254 +1343,59 @@ export default function Admin() {
     }));
   };
 
-
-  // Primary media upload handler (10MB for images, 100MB for videos)
-  const handlePrimaryMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const isVideo = file.type.startsWith('video/');
-    const maxSize = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024; // 100MB for video, 10MB for image
-
-    if (file.size > maxSize) {
-      const limitText = isVideo ? '100MB' : '10MB';
+  // Handle hero image upload on submit
+  const handleHeroImageUpload = async () => {
+    if (heroImagesToUpload.length === 0) {
       toast({
-        title: "File too large",
-        description: `Primary media file exceeds the ${limitText} limit`,
+        title: "No images selected",
+        description: "Please select images to upload",
         variant: "destructive"
       });
       return;
     }
 
+    setUploadingHeroImage(true);
+    
     try {
-      const formData = new FormData();
-      formData.append('media', file);
-
-      const response = await fetch('/api/upload/primary-media', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload primary media');
+      for (const item of heroImagesToUpload) {
+        toast({ title: `Uploading ${item.file.name}...` });
+        
+        const result = await imageUploadMutation.mutateAsync(item.file);
+        revokeBlobUrl(item.previewUrl);
+        
+        const heroImageData: InsertHeroImage = {
+          title: `Hero Image ${new Date().toLocaleDateString()}`,
+          imageUrl: result.imageUrl,
+          description: "",
+          isActive: true,
+          order: heroImages.length,
+        };
+        
+        await createHeroImageMutation.mutateAsync(heroImageData);
       }
-
-      const data = await response.json();
-      setProjectFormData(prev => ({
-        ...prev,
-        primaryMediaUrl: data.mediaUrl
-      }));
       
-      toast({
-        title: "Upload successful",
-        description: "Primary media uploaded successfully"
-      });
+      toast({ title: "All hero images uploaded successfully" });
+      setHeroImagesToUpload([]);
+      
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('Hero image upload error:', error);
       toast({
         title: "Upload failed",
-        description: "Failed to upload primary media",
+        description: "Failed to upload one or more images",
         variant: "destructive"
       });
+    } finally {
+      setUploadingHeroImage(false);
     }
-    
-    // Reset the input
-    e.target.value = '';
   };
 
-  // Additional media upload handler (10MB for images, 100MB for videos)
-  const handleAdditionalMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-
-    try {
-      const uploadPromises = files.map(async (file) => {
-        const isVideo = file.type.startsWith('video/');
-        const maxSize = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024; // 100MB for video, 10MB for image
-
-        if (file.size > maxSize) {
-          const limitText = isVideo ? '100MB' : '10MB';
-          toast({
-            title: "File too large",
-            description: `${file.name} exceeds the ${limitText} limit`,
-            variant: "destructive"
-          });
-          return null;
-        }
-
-        const formData = new FormData();
-        formData.append('media', file);
-
-        const response = await fetch('/api/upload/additional-media', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to upload ${file.name}`);
-        }
-
-        const data = await response.json();
-        return data.mediaUrl;
-      });
-
-      const urls = await Promise.all(uploadPromises);
-      const validUrls = urls.filter(url => url !== null);
-
-      if (validUrls.length > 0) {
-        setProjectFormData(prev => ({
-          ...prev,
-          additionalMediaUrls: [...(prev.additionalMediaUrls || []), ...validUrls]
-        }));
-        toast({
-          title: "Upload successful",
-          description: `${validUrls.length} additional file(s) uploaded successfully`
-        });
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      toast({
-        title: "Upload failed",
-        description: "Failed to upload one or more files",
-        variant: "destructive"
-      });
+  // Remove hero image from upload queue
+  const removeHeroImageFromQueue = (index: number) => {
+    const item = heroImagesToUpload[index];
+    if (item) {
+      revokeBlobUrl(item.previewUrl);
     }
-    
-    // Reset the input
-    e.target.value = '';
-  };
-
-  const removePrimaryMedia = () => {
-    setProjectFormData(prev => ({
-      ...prev,
-      primaryMediaUrl: ""
-    }));
-  };
-
-  const removeAdditionalMedia = (index: number) => {
-    setProjectFormData(prev => ({
-      ...prev,
-      additionalMediaUrls: prev.additionalMediaUrls?.filter((_, i) => i !== index) || []
-    }));
-  };
-
-  // Legacy media remove function for backward compatibility
-  const removeProjectMedia = (index: number) => {
-    setProjectFormData(prev => ({
-      ...prev,
-      imageUrls: prev.imageUrls?.filter((_, i) => i !== index) || []
-    }));
-  };
-
-  // Accessory image upload handler
-  const handleAccessoryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'primary' | 'additional') => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    if (type === 'primary') {
-      const file = files[0];
-      if (file.size > 10 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Primary image must be under 10MB",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      setUploadingAccessoryImage(true);
-      
-      try {
-        const formData = new FormData();
-        formData.append('image', file);
-        
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to upload image');
-        }
-        
-        const data = await response.json();
-        setAccessoryFormData(prev => ({
-          ...prev,
-          imageUrl: data.imageUrl
-        }));
-        
-        toast({
-          title: "Upload successful",
-          description: "Primary image uploaded successfully"
-        });
-      } catch (error) {
-        console.error('Upload error:', error);
-        toast({
-          title: "Upload failed",
-          description: "Failed to upload primary image",
-          variant: "destructive"
-        });
-      } finally {
-        setUploadingAccessoryImage(false);
-      }
-    } else {
-      // Additional images upload
-      setUploadingAccessoryAdditionalImages(true);
-      
-      try {
-        const uploadPromises = files.map(async (file) => {
-          if (file.size > 10 * 1024 * 1024) {
-            toast({
-              title: "File too large",
-              description: `${file.name} exceeds the 10MB limit`,
-              variant: "destructive"
-            });
-            return null;
-          }
-
-          const formData = new FormData();
-          formData.append('image', file);
-
-          const response = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to upload ${file.name}`);
-          }
-
-          const data = await response.json();
-          return data.imageUrl;
-        });
-
-        const urls = await Promise.all(uploadPromises);
-        const validUrls = urls.filter(url => url !== null);
-
-        if (validUrls.length > 0) {
-          setAccessoryFormData(prev => ({
-            ...prev,
-            imageUrls: [...(prev.imageUrls || []), ...validUrls]
-          }));
-          
-          toast({
-            title: "Upload successful",
-            description: `${validUrls.length} additional image(s) uploaded successfully`
-          });
-        }
-      } catch (error) {
-        console.error('Upload error:', error);
-        toast({
-          title: "Upload failed",
-          description: "Failed to upload one or more images",
-          variant: "destructive"
-        });
-      } finally {
-        setUploadingAccessoryAdditionalImages(false);
-      }
-    }
-    
-    // Reset the input
-    e.target.value = '';
+    setHeroImagesToUpload(prev => prev.filter((_, i) => i !== index));
   };
 
   // Filter products based on search and filters
@@ -1146,46 +1441,21 @@ export default function Admin() {
     category.slug.toLowerCase().includes(categorySearchTerm.toLowerCase())
   );
 
-  // Hero image upload handler - simplified
-  const handleHeroImageUpload = async (file: File) => {
-    setUploadingHeroImage(true);
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-      
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Upload failed');
-      }
-      
-      const data = await response.json();
-      
-      // Auto-create hero image with simple title
-      const heroImageData: InsertHeroImage = {
-        title: `Hero Image ${new Date().toLocaleDateString()}`,
-        imageUrl: data.imageUrl,
-        description: "",
-        isActive: true,
-        order: heroImages.length, // Add to end
-      };
-      
-      createHeroImageMutation.mutate(heroImageData);
-    } catch (error: any) {
-      console.error('Hero image upload error:', error);
-      toast({ 
-        title: "Upload failed", 
-        description: error.message || "Failed to upload hero image",
-        variant: "destructive" 
-      });
-    } finally {
-      setUploadingHeroImage(false);
-    }
-  };
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-3 sm:p-6">
@@ -1202,99 +1472,6 @@ export default function Admin() {
               <span className="sm:hidden">Admin</span>
               <span className="hidden sm:inline">Admin Dashboard</span>
             </h1>
-            {/* Tab Navigation */}
-            <div className="flex space-x-4 mt-4">
-              <button
-                onClick={() => setActiveTab('settings')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'settings' 
-                    ? 'bg-primary text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                Global Settings
-              </button>
-              <button
-                onClick={() => setActiveTab('products')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'products' 
-                    ? 'bg-primary text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                Products ({products.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('accessories')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'accessories' 
-                    ? 'bg-primary text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                Accessories ({accessories.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('contacts')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'contacts' 
-                    ? 'bg-primary text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                Messages ({contactMessages.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('projects')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'projects' 
-                    ? 'bg-primary text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                Projects ({projects.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('brands')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'brands' 
-                    ? 'bg-primary text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                Brands ({brands.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('categories')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'categories' 
-                    ? 'bg-primary text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                Categories ({categories.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('data-management')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'data-management' 
-                    ? 'bg-primary text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                Data Management
-              </button>
-              <button
-                onClick={() => setActiveTab('hero-images')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'hero-images' 
-                    ? 'bg-primary text-white' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                Hero Images
-              </button>
-            </div>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto justify-end">
             <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 hidden md:block">
@@ -1315,7 +1492,101 @@ export default function Admin() {
           </div>
         </div>
 
-        {/* Products Tab Content */}
+        {/* Tab Navigation */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'settings' 
+                ? 'bg-primary text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            Global Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'products' 
+                ? 'bg-primary text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            Products ({products.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('accessories')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'accessories' 
+                ? 'bg-primary text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            Accessories ({accessories.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('contacts')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'contacts' 
+                ? 'bg-primary text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            Messages ({contactMessages.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('projects')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'projects' 
+                ? 'bg-primary text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            Projects ({projects.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('brands')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'brands' 
+                ? 'bg-primary text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            Brands ({brands.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('categories')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'categories' 
+                ? 'bg-primary text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            Categories ({categories.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('data-management')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'data-management' 
+                ? 'bg-primary text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            Data Management
+          </button>
+          <button
+            onClick={() => setActiveTab('hero-images')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'hero-images' 
+                ? 'bg-primary text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            Hero Images
+          </button>
+        </div>
+
+        {/* Settings Tab Content */}
         {activeTab === 'settings' && (
           <div className="max-w-2xl mx-auto">
             <Card>
@@ -1418,6 +1689,8 @@ export default function Admin() {
             </Card>
           </div>
         )}
+
+        {/* Products Tab Content */}
         {activeTab === 'products' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
             {/* Product Form */}
@@ -1434,174 +1707,184 @@ export default function Admin() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Product Name</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Enter product description for marketing and general information"
-                      rows={3}
-                      required
-                    />
-                  </div>
-                  
-
-                  
-                  <div>
-                    <Label htmlFor="specificationList">Specification Table Items</Label>
-                    <div className="space-y-2">
-                      {(formData.specificationList || []).map((spec, index) => (
-                        <div key={index} className="flex items-center space-x-2">
-                          <Input
-                            value={spec}
-                            onChange={(e) => {
-                              const newSpecs = [...(formData.specificationList || [])];
-                              newSpecs[index] = e.target.value;
-                              setFormData({ ...formData, specificationList: newSpecs });
-                            }}
-                            placeholder="Enter specification item"
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const newSpecs = formData.specificationList?.filter((_, i) => i !== index) || [];
-                              setFormData({ ...formData, specificationList: newSpecs });
-                            }}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      ))}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setFormData({ 
-                            ...formData, 
-                            specificationList: [...(formData.specificationList || []), ""]
-                          });
-                        }}
-                      >
-                        Add Specification Item
-                      </Button>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">Use format "Feature - Detail" for proper table display (e.g. "LED Technology - 50,000+ hour lifespan")</p>
-                  </div>
-                  
-
-                  
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <Select
-                      value={formData.categorySlug}
-                      onValueChange={(value) => setFormData({ ...formData, categorySlug: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category) => (
-                          <SelectItem key={category.slug} value={category.slug}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="brand">Brand</Label>
-                    <Select
-                      value={formData.brand || ""}
-                      onValueChange={(value) => setFormData({ ...formData, brand: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select brand" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {brands.length === 0 ? (
-                          <SelectItem value="no-brands" disabled>
-                            No brands available - Add brands first
-                          </SelectItem>
-                        ) : (
-                          brands.map((brand) => (
-                            <SelectItem key={brand.id} value={brand.name}>
-                              {brand.name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {/* Primary Image */}
+                  <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                      <Label htmlFor="primaryImage">Primary Product Image *</Label>
+                      <Label htmlFor="name">Product Name</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        placeholder="Enter product description for marketing and general information"
+                        rows={3}
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="specificationList">Specification Table Items</Label>
                       <div className="space-y-2">
-                        <Input
-                          id="primaryImage"
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleImageUpload(e, true)}
-                          disabled={imageUploadMutation.isPending}
-                        />
-                        {imageUploadMutation.isPending && (
-                          <p className="text-sm text-blue-600">Uploading primary image...</p>
-                        )}
-                        {formData.imageUrl && (
-                          <div className="mt-2 relative">
-                            <img 
-                              src={formData.imageUrl} 
-                              alt="Primary product preview" 
-                              className="w-20 h-20 object-cover rounded border"
+                        {(formData.specificationList || []).map((spec, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <Input
+                              value={spec}
+                              onChange={(e) => {
+                                const newSpecs = [...(formData.specificationList || [])];
+                                newSpecs[index] = e.target.value;
+                                setFormData({ ...formData, specificationList: newSpecs });
+                              }}
+                              placeholder="Enter specification item"
                             />
-                            <p className="text-xs text-gray-500 mt-1">
-                              {isEditing ? "Upload a new file to replace current image" : "Primary image uploaded"}
-                            </p>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const newSpecs = formData.specificationList?.filter((_, i) => i !== index) || [];
+                                setFormData({ ...formData, specificationList: newSpecs });
+                              }}
+                            >
+                              Remove
+                            </Button>
                           </div>
-                        )}
+                        ))}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setFormData({ 
+                              ...formData, 
+                              specificationList: [...(formData.specificationList || []), ""]
+                            });
+                          }}
+                        >
+                          Add Specification Item
+                        </Button>
                       </div>
+                      <p className="text-sm text-gray-500 mt-1">Use format "Feature - Detail" for proper table display (e.g. "LED Technology - 50,000+ hour lifespan")</p>
                     </div>
-
-                    {/* Additional Images */}
+                    
                     <div>
-                      <Label htmlFor="additionalImages">Additional Images</Label>
-                      <div className="space-y-2">
-                        <Input
-                          id="additionalImages"
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleImageUpload(e, false)}
-                          disabled={imageUploadMutation.isPending}
-                        />
-                        {imageUploadMutation.isPending && (
-                          <p className="text-sm text-blue-600">Uploading image...</p>
-                        )}
-                        
-                        {/* Display additional images */}
-                        {formData.imageUrls && formData.imageUrls.length > 0 && (
+                      <Label htmlFor="category">Category</Label>
+                      <Select
+                        value={formData.categorySlug}
+                        onValueChange={(value) => setFormData({ ...formData, categorySlug: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.slug} value={category.slug}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="brand">Brand</Label>
+                      <Select
+                        value={formData.brand || ""}
+                        onValueChange={(value) => setFormData({ ...formData, brand: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select brand" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {brands.length === 0 ? (
+                            <SelectItem value="no-brands" disabled>
+                              No brands available - Add brands first
+                            </SelectItem>
+                          ) : (
+                            brands.map((brand) => (
+                              <SelectItem key={brand.id} value={brand.name}>
+                                {brand.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {/* Primary Image */}
+                      <div>
+                        <Label htmlFor="primaryImage">Primary Product Image *</Label>
+                        <div className="space-y-2">
+                          <Input
+                            id="primaryImage"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleProductPrimaryImageSelect}
+                          />
+                          
+                          {/* Show preview from local file or existing URL */}
+                          {(productPrimaryImage || formData.imageUrl) && (
+                            <div className="mt-2 relative">
+                              <img 
+                                src={productPrimaryImage?.previewUrl || formData.imageUrl} 
+                                alt="Primary product preview" 
+                                className="w-20 h-20 object-cover rounded border"
+                              />
+                              <p className="text-xs text-gray-500 mt-1">
+                                {productPrimaryImage 
+                                  ? `Selected: ${productPrimaryImage.file.name} (${(productPrimaryImage.file.size / (1024 * 1024)).toFixed(2)}MB)`
+                                  : "Existing image - upload new to replace"
+                                }
+                              </p>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-0 right-0 h-6 w-6 p-0"
+                                onClick={() => {
+                                  if (productPrimaryImage) {
+                                    revokeBlobUrl(productPrimaryImage.previewUrl);
+                                    setProductPrimaryImage(null);
+                                  } else {
+                                    setFormData(prev => ({ ...prev, imageUrl: "" }));
+                                  }
+                                }}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Additional Images */}
+                      <div>
+                        <Label htmlFor="additionalImages">Additional Images</Label>
+                        <div className="space-y-2">
+                          <Input
+                            id="additionalImages"
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleProductAdditionalImagesSelect}
+                          />
+                          
+                          {/* Show previews from local files or existing URLs */}
                           <div className="flex flex-wrap gap-2 mt-2">
-                            {formData.imageUrls.map((url, index) => (
-                              <div key={index} className="relative">
+                            {/* Existing image URLs */}
+                            {formData.imageUrls?.map((url, index) => (
+                              <div key={`existing-${index}`} className="relative">
                                 <img 
                                   src={url} 
-                                  alt={`Additional product preview ${index + 1}`} 
+                                  alt={`Existing additional ${index + 1}`} 
                                   className="w-16 h-16 object-cover rounded border"
                                 />
                                 <button
@@ -1613,239 +1896,269 @@ export default function Admin() {
                                 </button>
                               </div>
                             ))}
+                            
+                            {/* New file previews */}
+                            {productAdditionalImages.map((item, index) => (
+                              <div key={`new-${index}`} className="relative">
+                                <img 
+                                  src={item.previewUrl} 
+                                  alt={`New image ${index + 1}`} 
+                                  className="w-16 h-16 object-cover rounded border"
+                                />
+                                <Button
+                                  type="button"
+                                  onClick={() => removeProductAdditionalImage(index)}
+                                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 p-0 flex items-center justify-center text-xs hover:bg-red-600"
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                            ))}
                           </div>
-                        )}
-                        <p className="text-xs text-gray-500">You can upload multiple additional images to showcase different angles of the product.</p>
+                          
+                          <p className="text-xs text-gray-500">
+                            Files selected: {productAdditionalImages.length} new, {formData.imageUrls?.length || 0} existing
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="accessories">Compatible Accessories</Label>
-                    <Select
-                      value=""
-                      onValueChange={(value) => {
-                        if (value && !formData.accessories?.includes(value)) {
-                          setFormData({ 
-                            ...formData, 
-                            accessories: [...(formData.accessories || []), value]
-                          });
-                        }
-                      }}
+                    
+                    <div>
+                      <Label htmlFor="accessories">Compatible Accessories</Label>
+                      <Select
+                        value=""
+                        onValueChange={(value) => {
+                          if (value && !formData.accessories?.includes(value)) {
+                            setFormData({ 
+                              ...formData, 
+                              accessories: [...(formData.accessories || []), value]
+                            });
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select accessories to add" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {accessories
+                            .filter(accessory => {
+                              if (!formData.categorySlug || !accessory.compatibleWith) return false;
+                              return accessory.compatibleWith.includes(formData.categorySlug) ||
+                                     accessory.compatibleWith.includes('all') ||
+                                     accessory.compatibleWith.some(cat => 
+                                       formData.categorySlug?.includes(cat) || 
+                                       cat.includes(formData.categorySlug?.split('-')[0] || '')
+                                     );
+                            })
+                            .map((accessory) => (
+                              <SelectItem key={accessory.id} value={accessory.id}>
+                                {accessory.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {formData.accessories && formData.accessories.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {formData.accessories.map((accessoryId) => {
+                            const accessory = accessories.find(a => a.id === accessoryId);
+                            return accessory ? (
+                              <span key={accessoryId} className="inline-flex items-center bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded-full">
+                                {accessory.name}
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData({ 
+                                    ...formData, 
+                                    accessories: formData.accessories?.filter(id => id !== accessoryId) || []
+                                  })}
+                                  className="ml-1 text-blue-600 hover:text-blue-800"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.inStock ?? true}
+                          onChange={(e) => setFormData({ ...formData, inStock: e.target.checked })}
+                          className="rounded"
+                        />
+                        <Label htmlFor="inStock">In Stock</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.featured ?? false}
+                          onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
+                          className="rounded"
+                        />
+                        <Label htmlFor="featured">Featured Product</Label>
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full"
+                      disabled={createProductMutation.isPending || updateProductMutation.isPending}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select accessories to add" />
+                      <Plus className="w-4 h-4 mr-2" />
+                      {isEditing ? 'Update Product' : 'Add Product'}
+                      {(productPrimaryImage || productAdditionalImages.length > 0) && 
+                        ` (Upload ${[productPrimaryImage, ...productAdditionalImages].filter(Boolean).length} file(s))`}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Products Table */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Products ({filteredProducts.length} of {products.length})</CardTitle>
+                  
+                  {/* Admin Filters */}
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 mt-4">
+                    <div className="flex-1 min-w-[200px]">
+                      <Input
+                        placeholder="Search products..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full text-sm"
+                      />
+                    </div>
+                    
+                    <Select value={filterBrand} onValueChange={setFilterBrand}>
+                      <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Filter by brand" />
                       </SelectTrigger>
                       <SelectContent>
-                        {accessories
-                          .filter(accessory => {
-                            if (!formData.categorySlug || !accessory.compatibleWith) return false;
-                            return accessory.compatibleWith.includes(formData.categorySlug) ||
-                                   accessory.compatibleWith.includes('all') ||
-                                   accessory.compatibleWith.some(cat => 
-                                     formData.categorySlug?.includes(cat) || 
-                                     cat.includes(formData.categorySlug?.split('-')[0] || '')
-                                   );
-                          })
-                          .map((accessory) => (
-                            <SelectItem key={accessory.id} value={accessory.id}>
-                              {accessory.name}
-                            </SelectItem>
-                          ))}
+                        <SelectItem value="all">All Brands</SelectItem>
+                        {availableBrands.map((brand) => (
+                          <SelectItem key={brand} value={brand || ''}>
+                            {brand || 'No brand'}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
-                    {formData.accessories && formData.accessories.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {formData.accessories.map((accessoryId) => {
-                          const accessory = accessories.find(a => a.id === accessoryId);
-                          return accessory ? (
-                            <span key={accessoryId} className="inline-flex items-center bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded-full">
-                              {accessory.name}
-                              <button
-                                type="button"
-                                onClick={() => setFormData({ 
-                                  ...formData, 
-                                  accessories: formData.accessories?.filter(id => id !== accessoryId) || []
-                                })}
-                                className="ml-1 text-blue-600 hover:text-blue-800"
-                              >
-                                ×
-                              </button>
-                            </span>
-                          ) : null;
-                        })}
-                      </div>
+                    
+                    <Select value={filterCategory} onValueChange={setFilterCategory}>
+                      <SelectTrigger className="w-full sm:w-[180px]">
+                        <SelectValue placeholder="Filter by category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {categories.map((category) => (
+                          <SelectItem key={category.slug} value={category.slug}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    {(searchTerm || (filterBrand && filterBrand !== "all") || (filterCategory && filterCategory !== "all")) && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setSearchTerm("");
+                          setFilterBrand("all");
+                          setFilterCategory("all");
+                        }}
+                      >
+                        Clear Filters
+                      </Button>
                     )}
                   </div>
-
-
-
-                  <div className="flex items-center space-x-4">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={formData.featured ?? false}
-                        onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                      />
-                      <span>Featured Product</span>
-                    </label>
-                  </div>
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full"
-                    disabled={createProductMutation.isPending || updateProductMutation.isPending}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {isEditing ? 'Update Product' : 'Add Product'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Products Table */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Products ({filteredProducts.length} of {products.length})</CardTitle>
-                
-                {/* Admin Filters */}
-                <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 mt-4">
-                  <div className="flex-1 min-w-[200px]">
-                    <Input
-                      placeholder="Search products..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full text-sm"
-                    />
-                  </div>
-                  
-                  <Select value={filterBrand} onValueChange={setFilterBrand}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                      <SelectValue placeholder="Filter by brand" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Brands</SelectItem>
-                      {availableBrands.map((brand) => (
-                        <SelectItem key={brand} value={brand || ''}>
-                          {brand || 'No brand'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  
-                  <Select value={filterCategory} onValueChange={setFilterCategory}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                      <SelectValue placeholder="Filter by category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category.slug} value={category.slug}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  
-                  {(searchTerm || (filterBrand && filterBrand !== "all") || (filterCategory && filterCategory !== "all")) && (
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        setSearchTerm("");
-                        setFilterBrand("all");
-                        setFilterCategory("all");
-                      }}
-                    >
-                      Clear Filters
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="min-w-[120px]">Name</TableHead>
-                        <TableHead className="hidden sm:table-cell">Category</TableHead>
-                        <TableHead className="hidden md:table-cell">Brand</TableHead>
-                        <TableHead className="text-right">Status</TableHead>
-                        <TableHead className="hidden sm:table-cell text-center">Featured</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredProducts.map((product) => {
-                        const category = categories.find(c => c.slug === product.categorySlug);
-                        return (
-                          <TableRow key={product.id}>
-                            <TableCell className="font-medium">
-                              <div>
-                                <div className="font-medium text-sm">{product.name}</div>
-                                <div className="sm:hidden text-xs text-gray-500 mt-1">
-                                  {category?.name || 'Unknown'}
-                                  {product.featured && <span className="ml-1 text-yellow-600">★</span>}
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[120px]">Name</TableHead>
+                          <TableHead className="hidden sm:table-cell">Category</TableHead>
+                          <TableHead className="hidden md:table-cell">Brand</TableHead>
+                          <TableHead className="text-right">Status</TableHead>
+                          <TableHead className="hidden sm:table-cell text-center">Featured</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredProducts.map((product) => {
+                          const category = categories.find(c => c.slug === product.categorySlug);
+                          return (
+                            <TableRow key={product.id}>
+                              <TableCell className="font-medium">
+                                <div>
+                                  <div className="font-medium text-sm">{product.name}</div>
+                                  <div className="sm:hidden text-xs text-gray-500 mt-1">
+                                    {category?.name || 'Unknown'}
+                                    {product.featured && <span className="ml-1 text-yellow-600">★</span>}
+                                  </div>
                                 </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="hidden sm:table-cell text-sm">{category?.name || 'Unknown'}</TableCell>
-                            <TableCell className="hidden md:table-cell">
-                              <span className="px-2 py-1 rounded-md text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
-                                {product.brand || 'No Brand'}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <span className={`px-2 py-1 rounded-full text-xs ${
-                                product.inStock 
-                                  ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' 
-                                  : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
-                              }`}>
-                                {product.inStock ? 'Available' : 'Unavailable'}
-                              </span>
-                            </TableCell>
-                            <TableCell className="hidden sm:table-cell text-center">
-                              <span className={`px-2 py-1 rounded-full text-xs ${
-                                product.featured 
-                                  ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' 
-                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-                              }`}>
-                                {product.featured ? 'Featured' : 'Regular'}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex space-x-1 justify-end">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEdit(product)}
-                                  className="px-2"
-                                >
-                                  <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
-                                  <span className="sr-only">Edit</span>
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDelete(product.id)}
-                                  className="px-2 text-red-600 hover:text-red-700"
-                                  disabled={deleteProductMutation.isPending}
-                                >
-                                  <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                                  <span className="sr-only">Delete</span>
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell text-sm">{category?.name || 'Unknown'}</TableCell>
+                              <TableCell className="hidden md:table-cell">
+                                <span className="px-2 py-1 rounded-md text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                                  {product.brand || 'No Brand'}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                  product.inStock 
+                                    ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' 
+                                    : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                                }`}>
+                                  {product.inStock ? 'Available' : 'Unavailable'}
+                                </span>
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell text-center">
+                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                  product.featured 
+                                    ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' 
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                                }`}>
+                                  {product.featured ? 'Featured' : 'Regular'}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex space-x-1 justify-end">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEdit(product)}
+                                    className="px-2"
+                                  >
+                                    <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    <span className="sr-only">Edit</span>
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleDelete(product.id)}
+                                    className="px-2 text-red-600 hover:text-red-700"
+                                    disabled={deleteProductMutation.isPending}
+                                  >
+                                    <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    <span className="sr-only">Delete</span>
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         )}
 
@@ -1918,21 +2231,17 @@ export default function Admin() {
                     <div>
                       <Label>Primary Image</Label>
                       <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleAccessoryImageUpload(e, 'primary')}
-                            className="flex-1"
-                          />
-                          {uploadingAccessoryImage && (
-                            <span className="text-sm text-gray-500">Uploading...</span>
-                          )}
-                        </div>
-                        {accessoryFormData.imageUrl && (
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAccessoryPrimaryImageSelect}
+                          className="flex-1"
+                        />
+                        
+                        {(accessoryPrimaryImage || accessoryFormData.imageUrl) && (
                           <div className="flex items-center space-x-2">
                             <img 
-                              src={accessoryFormData.imageUrl} 
+                              src={accessoryPrimaryImage?.previewUrl || accessoryFormData.imageUrl} 
                               alt="Preview" 
                               className="w-16 h-16 object-cover rounded border"
                             />
@@ -1940,7 +2249,14 @@ export default function Admin() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => setAccessoryFormData({ ...accessoryFormData, imageUrl: "" })}
+                              onClick={() => {
+                                if (accessoryPrimaryImage) {
+                                  revokeBlobUrl(accessoryPrimaryImage.previewUrl);
+                                  setAccessoryPrimaryImage(null);
+                                } else {
+                                  setAccessoryFormData({ ...accessoryFormData, imageUrl: "" });
+                                }
+                              }}
                             >
                               Remove
                             </Button>
@@ -1953,24 +2269,21 @@ export default function Admin() {
                     <div>
                       <Label>Additional Images</Label>
                       <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={(e) => handleAccessoryImageUpload(e, 'additional')}
-                            className="flex-1"
-                          />
-                          {uploadingAccessoryAdditionalImages && (
-                            <span className="text-sm text-gray-500">Uploading...</span>
-                          )}
-                        </div>
-                        {accessoryFormData.imageUrls && accessoryFormData.imageUrls.length > 0 && (
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleAccessoryAdditionalImagesSelect}
+                          className="flex-1"
+                        />
+                        
+                        {/* New file previews */}
+                        {accessoryAdditionalImages.length > 0 && (
                           <div className="flex flex-wrap gap-2">
-                            {accessoryFormData.imageUrls.map((url, index) => (
+                            {accessoryAdditionalImages.map((item, index) => (
                               <div key={index} className="relative">
                                 <img 
-                                  src={url} 
+                                  src={item.previewUrl} 
                                   alt={`Additional ${index + 1}`} 
                                   className="w-16 h-16 object-cover rounded border"
                                 />
@@ -1980,9 +2293,10 @@ export default function Admin() {
                                   size="sm"
                                   className="absolute -top-2 -right-2 w-6 h-6 p-0 rounded-full"
                                   onClick={() => {
-                                    const newUrls = [...(accessoryFormData.imageUrls || [])];
-                                    newUrls.splice(index, 1);
-                                    setAccessoryFormData({ ...accessoryFormData, imageUrls: newUrls });
+                                    revokeBlobUrl(item.previewUrl);
+                                    const newItems = [...accessoryAdditionalImages];
+                                    newItems.splice(index, 1);
+                                    setAccessoryAdditionalImages(newItems);
                                   }}
                                 >
                                   ×
@@ -1991,6 +2305,30 @@ export default function Admin() {
                             ))}
                           </div>
                         )}
+                        
+                        {/* Existing images */}
+                        {accessoryFormData.imageUrls?.map((url, index) => (
+                          <div key={`existing-${index}`} className="relative inline-block mr-2 mb-2">
+                            <img 
+                              src={url} 
+                              alt={`Existing ${index + 1}`} 
+                              className="w-16 h-16 object-cover rounded border"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="absolute -top-2 -right-2 w-6 h-6 p-0 rounded-full"
+                              onClick={() => {
+                                const newUrls = [...(accessoryFormData.imageUrls || [])];
+                                newUrls.splice(index, 1);
+                                setAccessoryFormData({ ...accessoryFormData, imageUrls: newUrls });
+                              }}
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        ))}
                       </div>
                     </div>
                     <div>
@@ -2048,24 +2386,14 @@ export default function Admin() {
                           ? 'Processing...' 
                           : isEditingAccessory ? 'Update Accessory' : 'Create Accessory'
                         }
+                        {(accessoryPrimaryImage || accessoryAdditionalImages.length > 0) && 
+                          ` (Upload ${[accessoryPrimaryImage, ...accessoryAdditionalImages].filter(Boolean).length} file(s))`}
                       </Button>
                       {isEditingAccessory && (
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => {
-                            setIsEditingAccessory(false);
-                            setEditingAccessory(null);
-                            setAccessoryFormData({
-                              name: '',
-                              modelNumber: '',
-                              description: '',
-                              brand: '',
-                              imageUrl: '',
-                              imageUrls: [],
-                              compatibleWith: []
-                            });
-                          }}
+                          onClick={resetAccessoryForm}
                         >
                           Cancel
                         </Button>
@@ -2305,14 +2633,14 @@ export default function Admin() {
                               type="file"
                               id="primaryMedia"
                               accept="image/*,video/*"
-                              onChange={handlePrimaryMediaUpload}
+                              onChange={handleProjectPrimaryMediaSelect}
                               className="hidden"
                             />
                             <Label 
                               htmlFor="primaryMedia"
                               className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
                             >
-                              Upload Primary Media
+                              Select Primary Media
                             </Label>
                             <p className="text-sm text-muted-foreground mt-2">
                               Select main image (10MB max) or video (100MB max)
@@ -2320,20 +2648,20 @@ export default function Admin() {
                           </div>
                         </div>
 
-                        {/* Display primary media preview */}
-                        {projectFormData.primaryMediaUrl && (
+                        {/* Display preview */}
+                        {(projectPrimaryMedia || projectFormData.primaryMediaUrl) && (
                           <div className="mt-4">
                             <div className="relative group inline-block">
-                              {projectFormData.primaryMediaUrl.includes('.mp4') || projectFormData.primaryMediaUrl.includes('video') ? (
+                              {projectPrimaryMedia?.isVideo ? (
                                 <video 
-                                  src={projectFormData.primaryMediaUrl}
+                                  src={projectPrimaryMedia.previewUrl}
                                   className="w-32 h-24 object-cover rounded border"
                                   controls={false}
                                 />
                               ) : (
                                 <img 
-                                  src={projectFormData.primaryMediaUrl} 
-                                  alt="Primary media"
+                                  src={projectPrimaryMedia?.previewUrl || projectFormData.primaryMediaUrl} 
+                                  alt="Primary media preview"
                                   className="w-32 h-24 object-cover rounded border"
                                 />
                               )}
@@ -2363,14 +2691,14 @@ export default function Admin() {
                               id="additionalMedia"
                               multiple
                               accept="image/*,video/*"
-                              onChange={handleAdditionalMediaUpload}
+                              onChange={handleProjectAdditionalMediaSelect}
                               className="hidden"
                             />
                             <Label 
                               htmlFor="additionalMedia"
                               className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/90 h-10 px-4 py-2"
                             >
-                              Upload Additional Media
+                              Select Additional Media
                             </Label>
                             <p className="text-sm text-muted-foreground mt-2">
                               Select multiple images (10MB max each) or videos (100MB max each)
@@ -2378,37 +2706,69 @@ export default function Admin() {
                           </div>
                         </div>
 
-                        {/* Display additional media preview */}
-                        {projectFormData.additionalMediaUrls && projectFormData.additionalMediaUrls.length > 0 && (
-                          <div className="grid grid-cols-3 gap-4 mt-4">
-                            {projectFormData.additionalMediaUrls.map((url, index) => (
-                              <div key={index} className="relative group">
-                                {url.includes('.mp4') || url.includes('video') ? (
-                                  <video 
-                                    src={url}
-                                    className="w-full h-20 object-cover rounded border"
-                                    controls={false}
-                                  />
-                                ) : (
-                                  <img 
-                                    src={url} 
-                                    alt={`Additional media ${index + 1}`}
-                                    className="w-full h-20 object-cover rounded border"
-                                  />
-                                )}
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="sm"
-                                  className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={() => removeAdditionalMedia(index)}
-                                >
-                                  ×
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        {/* Display previews */}
+                        <div className="grid grid-cols-3 gap-4 mt-4">
+                          {/* Existing media */}
+                          {projectFormData.additionalMediaUrls?.map((url, index) => (
+                            <div key={`existing-${index}`} className="relative group">
+                              {url.includes('.mp4') || url.includes('video') ? (
+                                <video 
+                                  src={url}
+                                  className="w-full h-20 object-cover rounded border"
+                                  controls={false}
+                                />
+                              ) : (
+                                <img 
+                                  src={url} 
+                                  alt={`Existing media ${index + 1}`}
+                                  className="w-full h-20 object-cover rounded border"
+                                />
+                              )}
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => removeAdditionalMedia(index)}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          ))}
+                          
+                          {/* New media previews */}
+                          {projectAdditionalMedia.map((item, index) => (
+                            <div key={`new-${index}`} className="relative group">
+                              {item.isVideo ? (
+                                <video 
+                                  src={item.previewUrl}
+                                  className="w-full h-20 object-cover rounded border"
+                                  controls={false}
+                                />
+                              ) : (
+                                <img 
+                                  src={item.previewUrl} 
+                                  alt={`New media ${index + 1}`}
+                                  className="w-full h-20 object-cover rounded border"
+                                />
+                              )}
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => {
+                                  revokeBlobUrl(item.previewUrl);
+                                  const newItems = [...projectAdditionalMedia];
+                                  newItems.splice(index, 1);
+                                  setProjectAdditionalMedia(newItems);
+                                }}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
@@ -2457,6 +2817,8 @@ export default function Admin() {
                       ) : (
                         isEditingProject ? 'Update Project' : 'Create Project'
                       )}
+                      {(projectPrimaryMedia || projectAdditionalMedia.length > 0) && 
+                        ` (Upload ${[projectPrimaryMedia, ...projectAdditionalMedia].filter(Boolean).length} file(s))`}
                     </Button>
                   </form>
                 </CardContent>
@@ -2906,72 +3268,36 @@ export default function Admin() {
                       <Label htmlFor="categoryImage">Category Image</Label>
                       <div className="space-y-2">
                         <Input
-                          id="categoryImage"
-                          value={categoryFormData.imageUrl || ''}
-                          onChange={(e) => setCategoryFormData({...categoryFormData, imageUrl: e.target.value})}
-                          placeholder="Image URL or upload an image"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleCategoryImageSelect}
                           className="flex-1"
                         />
                         
-                        {/* Image Upload */}
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                if (file.size > 5 * 1024 * 1024) {
-                                  toast({
-                                    title: "File too large",
-                                    description: "Please select an image under 5MB",
-                                    variant: "destructive",
-                                  });
-                                  return;
-                                }
-                                setUploadingCategoryImage(true);
-                                try {
-                                  const formData = new FormData();
-                                  formData.append('image', file);
-                                  const response = await fetch('/api/upload', {
-                                    method: 'POST',
-                                    body: formData,
-                                  });
-                                  if (response.ok) {
-                                    const data = await response.json();
-                                    setCategoryFormData(prev => ({ ...prev, imageUrl: data.imageUrl }));
-                                    toast({ title: "Image uploaded successfully" });
-                                  } else {
-                                    throw new Error('Upload failed');
-                                  }
-                                } catch (error) {
-                                  console.error('Upload error:', error);
-                                  toast({
-                                    title: "Upload failed",
-                                    description: "Please try again",
-                                    variant: "destructive",
-                                  });
-                                } finally {
-                                  setUploadingCategoryImage(false);
-                                }
-                              }
-                            }}
-                            disabled={uploadingCategoryImage}
-                            className="text-sm"
-                          />
-                          {uploadingCategoryImage && (
-                            <span className="text-sm text-gray-500">Uploading...</span>
-                          )}
-                        </div>
-                        
-                        {/* Image Preview */}
-                        {categoryFormData.imageUrl && (
+                        {/* Display preview */}
+                        {(categoryImage || categoryFormData.imageUrl) && (
                           <div className="mt-2">
                             <img 
-                              src={categoryFormData.imageUrl} 
+                              src={categoryImage?.previewUrl || categoryFormData.imageUrl} 
                               alt="Category preview"
                               className="w-16 h-16 object-cover rounded border"
                             />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-2"
+                              onClick={() => {
+                                if (categoryImage) {
+                                  revokeBlobUrl(categoryImage.previewUrl);
+                                  setCategoryImage(null);
+                                } else {
+                                  setCategoryFormData({ ...categoryFormData, imageUrl: "" });
+                                }
+                              }}
+                            >
+                              Remove Image
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -2991,6 +3317,7 @@ export default function Admin() {
 
                     <Button type="submit" className="w-full" disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending}>
                       {isEditingCategory ? 'Update Category' : 'Create Category'}
+                      {categoryImage && ' (Upload 1 image)'}
                     </Button>
                   </form>
                 </CardContent>
@@ -3098,7 +3425,7 @@ export default function Admin() {
               <CardHeader>
                 <CardTitle className="text-xl">Upload Hero Images</CardTitle>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Simply drag and drop or select images to upload. No forms to fill - just upload and they're ready to use!
+                  Select images to upload. They will be uploaded when you click the Upload button.
                 </p>
               </CardHeader>
               <CardContent>
@@ -3108,7 +3435,7 @@ export default function Admin() {
                       <Plus className="w-8 h-8 text-gray-400" />
                     </div>
                     <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                      Upload Hero Images
+                      Select Hero Images
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                       Select high-quality images (JPG, PNG, WebP) up to 10MB each
@@ -3118,22 +3445,7 @@ export default function Admin() {
                       type="file"
                       accept="image/*"
                       multiple
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files || []);
-                        files.forEach(file => {
-                          if (file.size > 10 * 1024 * 1024) {
-                            toast({
-                              title: "File too large",
-                              description: `${file.name} is over 10MB. Please select smaller images.`,
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                          handleHeroImageUpload(file);
-                        });
-                        // Reset the input
-                        e.target.value = '';
-                      }}
+                      onChange={handleHeroImageSelect}
                       disabled={uploadingHeroImage}
                       className="block w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90 disabled:file:bg-gray-400"
                     />
@@ -3141,11 +3453,65 @@ export default function Admin() {
                     {uploadingHeroImage && (
                       <div className="flex items-center justify-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mt-4">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                        <span>Uploading image...</span>
+                        <span>Uploading images...</span>
                       </div>
                     )}
                   </div>
                 </div>
+
+                {/* Selected Images Preview */}
+                {heroImagesToUpload.length > 0 && (
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-medium">Selected Images ({heroImagesToUpload.length})</h4>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            heroImagesToUpload.forEach(item => revokeBlobUrl(item.previewUrl));
+                            setHeroImagesToUpload([]);
+                          }}
+                        >
+                          Clear All
+                        </Button>
+                        <Button
+                          onClick={handleHeroImageUpload}
+                          disabled={uploadingHeroImage}
+                        >
+                          {uploadingHeroImage ? 'Uploading...' : `Upload ${heroImagesToUpload.length} Image(s)`}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {heroImagesToUpload.map((item, index) => (
+                        <div key={index} className="border rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+                          <div className="relative">
+                            <img 
+                              src={item.previewUrl} 
+                              alt={`Hero image ${index + 1}`}
+                              className="w-full h-32 object-cover"
+                            />
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="absolute top-2 right-2 h-6 w-6 p-0"
+                              onClick={() => removeHeroImageFromQueue(index)}
+                            >
+                              ×
+                            </Button>
+                          </div>
+                          <div className="p-2">
+                            <p className="text-xs truncate">{item.file.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {(item.file.size / (1024 * 1024)).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Quick Guidelines */}
                 <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
