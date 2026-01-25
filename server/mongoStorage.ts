@@ -293,6 +293,20 @@ export class MongoStorage implements IStorage {
     return result.deletedCount > 0;
   }
 
+  async getCategory(id: string): Promise<Category | undefined> {
+    try {
+      const category = await CategoryModel.findOne({ _id: id }).lean();
+      if (!category) return undefined;
+      return {
+        ...category,
+        id: category._id as string
+      } as unknown as Category;
+    } catch (error) {
+      console.error("Error fetching category:", error);
+      return undefined;
+    }
+  }
+
   // Contact Messages
   async getContactMessages(): Promise<ContactMessage[]> {
     const messages = await ContactMessageModel.find()

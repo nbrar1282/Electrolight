@@ -229,7 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: accessory.description,
           brand: accessory.brand,
           imageUrl: accessory.imageUrl,
-          imageUrls: [],
+          imageUrls: accessory.imageUrls || [],
           categorySlug: 'accessories',
           specifications: accessory.modelNumber ? [`Model: ${accessory.modelNumber}`] : [],
           accessories: [],
@@ -341,12 +341,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid product ID provided" });
       }
       
-      const productData = insertProductSchema.partial().parse(req.body);
-      const product = await storage.updateProduct(productId, productData);
-      if (!product) {
+      const existing = await storage.getProduct(productId);
+      if (!existing) {
         return res.status(404).json({ message: "Product not found" });
       }
-      res.json(product);
+
+      const productData = insertProductSchema.partial().parse(req.body);
+      const updatedProduct = await storage.updateProduct(productId, productData);
+      if (!updatedProduct) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      // Calculate removed URLs to clean up from Cloudinary
+      const oldUrls = [
+        existing.imageUrl,
+        ...(existing.imageUrls || []),
+      ].filter(Boolean);
+
+      const newUrls = [
+        updatedProduct.imageUrl,
+        ...(updatedProduct.imageUrls || []),
+      ].filter(Boolean);
+
+      const removed = oldUrls.filter((u: string) => !newUrls.includes(u));
+      if (removed.length > 0) {
+        console.log(`Cleaning up ${removed.length} orphaned product image URLs`);
+        await deleteManyFromCloudinaryByUrls(removed);
+      }
+
+      res.json(updatedProduct);
     } catch (error: any) {
       console.error('Product update error:', error);
       if (error.name === 'ZodError') {
@@ -369,10 +392,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const urlsToDelete = [
         existing.imageUrl,
         ...(existing.imageUrls || []),
-        // If you ever add product videos later, add them here too
-      ];
+      ].filter(Boolean);
 
-      await deleteManyFromCloudinaryByUrls(urlsToDelete);
+      if (urlsToDelete.length > 0) {
+        await deleteManyFromCloudinaryByUrls(urlsToDelete);
+      }
 
       const deleted = await storage.deleteProduct(req.params.id);
       if (!deleted) return res.status(404).json({ message: "Product not found" });
@@ -435,12 +459,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid accessory ID provided" });
       }
       
-      const accessoryData = insertAccessorySchema.partial().parse(req.body);
-      const accessory = await storage.updateAccessory(accessoryId, accessoryData);
-      if (!accessory) {
+      const existing = await storage.getAccessory(accessoryId);
+      if (!existing) {
         return res.status(404).json({ message: "Accessory not found" });
       }
-      res.json(accessory);
+
+      const accessoryData = insertAccessorySchema.partial().parse(req.body);
+      const updatedAccessory = await storage.updateAccessory(accessoryId, accessoryData);
+      if (!updatedAccessory) {
+        return res.status(404).json({ message: "Accessory not found" });
+      }
+
+      // Calculate removed URLs to clean up from Cloudinary
+      const oldUrls = [
+        existing.imageUrl,
+        ...(existing.imageUrls || []),
+      ].filter(Boolean);
+
+      const newUrls = [
+        updatedAccessory.imageUrl,
+        ...(updatedAccessory.imageUrls || []),
+      ].filter(Boolean);
+
+      const removed = oldUrls.filter((u: string) => !newUrls.includes(u));
+      if (removed.length > 0) {
+        console.log(`Cleaning up ${removed.length} orphaned accessory image URLs`);
+        await deleteManyFromCloudinaryByUrls(removed);
+      }
+
+      res.json(updatedAccessory);
     } catch (error: any) {
       console.error('Accessory update error:', error);
       if (error.name === 'ZodError') {
@@ -459,10 +506,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existing = await storage.getAccessory(req.params.id);
       if (!existing) return res.status(404).json({ message: "Accessory not found" });
 
-      await deleteManyFromCloudinaryByUrls([
+      const urlsToDelete = [
         existing.imageUrl,
-        ...(existing.imageUrls || []), // if you ever add this field
-      ]);
+        ...(existing.imageUrls || []),
+      ].filter(Boolean);
+
+      if (urlsToDelete.length > 0) {
+        await deleteManyFromCloudinaryByUrls(urlsToDelete);
+      }
 
       const deleted = await storage.deleteAccessory(req.params.id);
       if (!deleted) return res.status(404).json({ message: "Accessory not found" });
@@ -611,6 +662,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/admin/projects/:id", requireAdminAuth, async (req, res) => {
     try {
+      const projectId = req.params.id;
+      if (!projectId || projectId === 'undefined') {
+        return res.status(400).json({ message: "Invalid project ID provided" });
+      }
+
+      const existing = await storage.getProject(projectId);
+      if (!existing) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
       // Map category to clientType for backward compatibility
       const projectData = {
         ...req.body,
@@ -618,11 +679,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       const validatedData = insertProjectSchema.partial().parse(projectData);
-      const project = await storage.updateProject(req.params.id, validatedData);
-      if (!project) {
+      const updatedProject = await storage.updateProject(projectId, validatedData);
+      if (!updatedProject) {
         return res.status(404).json({ message: "Project not found" });
       }
-      res.json(project);
+
+      // Calculate removed URLs to clean up from Cloudinary
+      // Include all media fields: primaryMediaUrl, additionalMediaUrls, and legacy imageUrls
+      const oldUrls = [
+        (existing as any).primaryMediaUrl,
+        ...(((existing as any).additionalMediaUrls || []) as string[]),
+        ...(((existing as any).imageUrls || []) as string[]),
+      ].filter(Boolean);
+
+      const newUrls = [
+        (updatedProject as any).primaryMediaUrl,
+        ...(((updatedProject as any).additionalMediaUrls || []) as string[]),
+        ...(((updatedProject as any).imageUrls || []) as string[]),
+      ].filter(Boolean);
+
+      const removed = oldUrls.filter((u: string) => !newUrls.includes(u));
+      if (removed.length > 0) {
+        console.log(`Cleaning up ${removed.length} orphaned project media URLs`);
+        await deleteManyFromCloudinaryByUrls(removed);
+      }
+
+      res.json(updatedProject);
     } catch (error: any) {
       console.error("Error updating project:", error);
       if (error.name === 'ZodError') {
@@ -637,11 +719,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existing = await storage.getProject(req.params.id);
       if (!existing) return res.status(404).json({ message: "Project not found" });
 
-      await deleteManyFromCloudinaryByUrls([
+      const urlsToDelete = [
         (existing as any).primaryMediaUrl,
         ...(((existing as any).imageUrls || []) as string[]),
         ...(((existing as any).mediaUrls || []) as string[]),
-      ]);
+      ].filter(Boolean);
+
+      if (urlsToDelete.length > 0) {
+        await deleteManyFromCloudinaryByUrls(urlsToDelete);
+      }
 
       const success = await storage.deleteProject(req.params.id);
       if (!success) return res.status(404).json({ message: "Project not found" });
@@ -746,15 +832,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Category management routes (update existing categories)
+  // Category management routes
   app.put("/api/categories/:id", requireAdminAuth, async (req, res) => {
     try {
-      const categoryData = insertCategorySchema.partial().parse(req.body);
-      const category = await storage.updateCategory(req.params.id, categoryData);
-      if (!category) {
+      const categoryId = req.params.id;
+      const existing = await storage.getCategory(categoryId);
+      if (!existing) {
         return res.status(404).json({ message: "Category not found" });
       }
-      res.json(category);
+
+      const categoryData = insertCategorySchema.partial().parse(req.body);
+      const updatedCategory = await storage.updateCategory(categoryId, categoryData);
+      if (!updatedCategory) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+
+      // Check if image was replaced and clean up old one
+      const oldImageUrl = (existing as any).imageUrl;
+      const newImageUrl = (updatedCategory as any).imageUrl;
+      
+      if (oldImageUrl && oldImageUrl !== newImageUrl) {
+        console.log(`Cleaning up old category image: ${oldImageUrl}`);
+        await deleteManyFromCloudinaryByUrls([oldImageUrl]);
+      }
+
+      res.json(updatedCategory);
     } catch (error: any) {
       console.error("Error updating category:", error);
       if (error.name === 'ZodError') {
@@ -784,7 +886,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existing = all.find((c) => c.id === req.params.id);
       if (!existing) return res.status(404).json({ message: "Category not found" });
 
-      await deleteManyFromCloudinaryByUrls([ (existing as any).imageUrl ]);
+      const imageUrl = (existing as any).imageUrl;
+      if (imageUrl) {
+        await deleteManyFromCloudinaryByUrls([imageUrl]);
+      }
 
       const success = await storage.deleteCategory(req.params.id);
       if (!success) return res.status(404).json({ message: "Category not found" });
@@ -795,7 +900,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to delete category" });
     }
   });
-
 
   // Hero Images routes
   app.get("/api/hero-images", async (req, res) => {
@@ -834,12 +938,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/hero-images/:id", requireAdminAuth, async (req, res) => {
     try {
-      const heroImage = await storage.updateHeroImage(req.params.id, req.body);
-      if (heroImage) {
-        res.json(heroImage);
-      } else {
-        res.status(404).json({ error: "Hero image not found" });
+      const heroImageId = req.params.id;
+      const existing = await storage.getHeroImage(heroImageId);
+      if (!existing) {
+        return res.status(404).json({ error: "Hero image not found" });
       }
+
+      const updatedHeroImage = await storage.updateHeroImage(heroImageId, req.body);
+      if (!updatedHeroImage) {
+        return res.status(404).json({ error: "Hero image not found" });
+      }
+
+      // Check if image was replaced and clean up old one
+      const oldImageUrl = (existing as any).imageUrl;
+      const newImageUrl = (updatedHeroImage as any).imageUrl;
+      
+      if (oldImageUrl && oldImageUrl !== newImageUrl) {
+        console.log(`Cleaning up old hero image: ${oldImageUrl}`);
+        await deleteManyFromCloudinaryByUrls([oldImageUrl]);
+      }
+
+      res.json(updatedHeroImage);
     } catch (error) {
       console.error("Error updating hero image:", error);
       res.status(500).json({ error: "Failed to update hero image" });
@@ -851,10 +970,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existing = await storage.getHeroImage(req.params.id);
       if (!existing) return res.status(404).json({ error: "Hero image not found" });
 
-      await deleteManyFromCloudinaryByUrls([
+      const urlsToDelete = [
         (existing as any).imageUrl,
         (existing as any).mediaUrl,
-      ]);
+      ].filter(Boolean);
+
+      if (urlsToDelete.length > 0) {
+        await deleteManyFromCloudinaryByUrls(urlsToDelete);
+      }
 
       const result = await storage.deleteHeroImage(req.params.id);
       if (!result) return res.status(404).json({ error: "Hero image not found" });

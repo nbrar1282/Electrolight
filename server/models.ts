@@ -105,8 +105,9 @@ const accessorySchema = new Schema({
   modelNumber: { type: String },
   description: { type: String, required: true },
   imageUrl: { type: String, required: true },
+  imageUrls: [{ type: String }], // ← ADD THIS LINE WITH DEFAULT []
   brand: { type: String },
-  compatibleWith: [{ type: String }], // Product categories or types
+  compatibleWith: [{ type: String, default: [] }], // Product categories or types
   createdAt: { type: String, required: false, default: () => new Date().toISOString() },
 }, { 
   timestamps: false,
