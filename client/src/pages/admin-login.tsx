@@ -106,13 +106,13 @@ export default function AdminLogin() {
               </Button>
             </form>
             
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            {/* <div className="mt-6 p-4 bg-blue-50 rounded-lg">
               <h4 className="font-medium text-blue-900 mb-2">Demo Credentials</h4>
               <p className="text-sm text-blue-700">
                 <strong>Username:</strong> admin<br />
                 <strong>Password:</strong> admin123
               </p>
-            </div>
+            </div> */}
           </CardContent>
         </Card>
       </div>
